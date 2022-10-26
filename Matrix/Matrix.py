@@ -2,6 +2,7 @@ import random
 from pandas import DataFrame
 import matplotlib.pyplot as pyplot
 import matplotlib.pyplot as plt
+from matplotlib import cm
 
 def avg(lst):
     """
@@ -73,17 +74,21 @@ def process_matrix(matrix):
 
 
 def display_matrix(matrix, new_matrix):
+    """
+    Muestra la representación en colorines de la matriz random antes y despues de ser procesada
+    """
 
+    cmap = cm.get_cmap('RdPu')
 
     plt.subplot(211).set_ylabel("Random Matrix")
-    pyplot.imshow(matrix)
+    pyplot.imshow(matrix, cmap=cmap)
     plt.subplot(212).set_ylabel("Random Matrix after processing")
-    pyplot.imshow(new_matrix)
+    pyplot.imshow(new_matrix, cmap=cmap)
    
 
     plt.subplots_adjust(bottom=0.1, right=0.8, top=0.9)
     cax = plt.axes([0.85, 0.1, 0.075, 0.8])
-    plt.colorbar(cax=cax)  
+    plt.colorbar(cax=cax, cmap=cmap)  
 
     pyplot.show()
 
