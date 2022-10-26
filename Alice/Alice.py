@@ -16,13 +16,19 @@ nltk.download('punkt')
 nltk.download('stopwords')
 ###############################################################
 
-text = open("Alice/alice.txt", "r", encoding="utf-8").read().lower()  # Abrimos el texto, leemos, pasamos a minisculas
-text = list(map(contractions.fix, text.split())) # Aplicamos el contractions para arreglar las contracciones propias del ingles como I'll, I'm...
-text = " ".join(text) # Volvemos a juntar el texto
-tokens = nltk.tokenize.word_tokenize(text) #Lo tokenizamos con la herramienta de nltk
-# Esta herramienta además nos separa las palabras de los signos de puntuación
+#Leemos el archivo 
 
+with open ('Alice/alice.txt', 'r', encoding="utf-8" ) as file:
+    text = file.read()
+    text = list(map(contractions.fix, text.split())) # Aplicamos el contractions para arreglar las contracciones propias del ingles como I'll, I'm...
+    text = " ".join(text) 
+    tokens = nltk.tokenize.word_tokenize(text) #Lo tokenizamos con la herramienta de nltk
+
+
+
+# Esta herramienta además nos separa las palabras de los signos de puntuación
 stopwords = nltk.corpus.stopwords.words('english') # Importarmos las stopwords de nltk
+
 
 """
 Esta función nos indica que palabra NO es una stopword
@@ -44,13 +50,13 @@ def remove_non_alpha(word):
     return "".join(filter(str.isalpha, word))
 
 # Hacemos una lista con todos los elementos que solo sean letras
-tokens = list(map(remove_non_alpha, tokens))
+tokens = map(remove_non_alpha, tokens)
 #Hacemos una lista con todos los elementos restantes que no sean stopwords
-tokens = list(filter(is_not_stopword, tokens))
+tokens = filter(is_not_stopword, tokens)
 #Hacemos una lista con los elementos restantes que no sean signos de puntación.
 #Igual no es necesario dado que ya hemos quitado todos los caracteres que NO sean letras
-tokens = list(filter(is_not_punctuation, tokens))
-
+tokens = filter(is_not_punctuation, tokens)
+tokens = list(tokens)
 
 """
 Creamos la distribución con la herramienta de FreqDist de nltk
