@@ -1,0 +1,475 @@
+---
+format: html
+editor: visual
+---
+
+El análisis exploratorio de datos consiste en analizar los datos que tenemos para poder extraer conclusiones.
+
+Los gráficos son la mejor forma de representar los datos. Los estimadores estadísticos como la media, mediana o percentiles nos pueden dar una idea aproximada, pero su estructura se aprecia mucho mejor si podemos pintarlos.
+
+En esta sección vamos a ver como utilizar R y diferentes funciones del tidyverse para realizar diferentes gráficos.
+
+### Evolución datos covid
+
+Qué vamos a aprender:
+
+-   operador |>
+-   Librería [dplyr](https://dplyr.tidyverse.org/): group_by() y summarize()
+-   Librería [ggplot2](https://ggplot2.tidyverse.org/): geom_line() y geom_cols()
+
+Utilizaremos los datos de:
+
+https://cnecovid.isciii.es/covid19/#documentaci%C3%B3n-y-datos
+
+```{r}
+covid_url<-'https://cnecovid.isciii.es/covid19/resources/hosp_uci_def_sexo_edad_provres_todas_edades.csv'
+
+df_covid<-read.csv(url(covid_url), stringsAsFactors = T)
+df_covid$fecha <- as.Date(df_covid$fecha)
+head(df_covid)
+```
+
+Vamos a ver el número de provincias que tenemos. Los códigos de las provincias se pueden consultar aquí: https://es.wikipedia.org/wiki/ISO_3166-2:ES
+
+```{r}
+unique(df_covid$provincia_iso)
+```
+
+Vamos a ver el rango de fechas de los datos que tenemos:
+
+```{r}
+paste("Los datos van dede el dia",min(df_covid$fecha),"hasta el dia",max(df_covid$fecha))
+```
+
+```{r}
+num_hospitalizados <- sum(df_covid$num_hosp)
+num_uci <- sum(df_covid$num_uci)
+num_def <- sum(df_covid$num_def)
+
+paste("El número total de hospitalizados ha sido de:", num_hospitalizados)
+paste("El número total de enfermos en UCI ha sido de:", num_uci)
+paste("El número total de defunciones ha sido de:", num_def)
+```
+
+Podemos calcular el número de casos que ha habido en un día determinado
+
+```{r}
+dia <- '2022-08-01'
+df_covid_dia <- df_covid[df_covid$fecha==dia,]
+
+num_hospitalizados <- sum(df_covid_dia$num_hosp)
+num_uci <- sum(df_covid_dia$num_uci)
+num_def <- sum(df_covid_dia$num_def)
+
+paste("El número total de hospitalizados el dia",dia,"fue de:", num_hospitalizados)
+paste("El número total de enfermos en UCI el dia",dia,"fue de:", num_uci)
+paste("El número total de defunciones el dia",dia,"fue de:", num_def)
+```
+
+#### Operador |>
+
+El operador |> apareció en R versión 4.1. Antes se utilizaba el operador %>% del paquete margrit.
+
+El operador X |> fun() lo que hace es pasar el elemento X como primer parámetro a la función fun().
+
+Es decir, `X |> fun()`, es equivalente a `fun(X)`. La ventaja es que se pueden concatenar funciones y usar la salida de una función como la entrada a la siguiente.
+
+Así `X |> fun1() |> fun2()` es equivalente a `fun2(fun1(X))`
+
+**Agrupación**
+
+Pero si queremos calcular el número total de casos por días podemos usas librerías para agrupar.
+
+```{r}
+library(dplyr)
+df_covid_diario <- df_covid |> group_by(fecha) |> 
+  summarise(num_hospitalizados=sum(num_hosp),
+            num_uci=sum(num_uci),
+            num_defuncion=sum(num_def),
+            max_hospitalizados=max(num_hosp))
+
+# Equivaldria a:
+#df_covid_diario <- summarise( 
+#             group_by(df_covid, fecha),
+#                  num_hospitalizados=sum(num_hosp),
+#                  num_uci=sum(num_uci),
+#                  num_defuncion=sum(num_def)
+#             )
+```
+
+Ahora podemos pintar la evolución diaria:
+
+```{r}
+library(ggplot2)
+ggplot(df_covid_diario, aes(x=fecha, y=num_hospitalizados))+
+  geom_line(color='#1122FF')+
+  xlab('Fecha')+
+  ylab('Numero hospitalizados')+
+  ggtitle("Numero de hospitalizados diarios por COVID", subtitle = "Para 2022")+
+  theme_bw()
+```
+```{r}
+mycolor <- c('#0010AA','#00AA71')
+ggplot(df_covid_diario, aes(x=fecha, y=num_hospitalizados))+
+  geom_col(aes(y=num_uci, color='UCI'))+
+  geom_line(aes(color='Hospitalizados'))+
+  xlab('Fecha')+
+  ylab('Numero pacientes')+
+  labs(color='Tipo paciente')+
+  scale_color_manual(values=mycolor)+
+  ggtitle("Numero de pacientes diarios por COVID", subtitle = "Para 2022")+
+  theme_bw()
+```
+
+
+## Análisis de la población española en 2022
+
+Qué vamos a aprender:
+
+-   Librería [dplyr](https://dplyr.tidyverse.org/):
+-   select()
+-   rename()
+-   arrange()
+-   mutate()
+-   librería [tidyr](https://tidyr.tidyverse.org/):
+-   drop_na()
+-   pivot_wider()
+-   librería [ggplot2](https://ggplot2.tidyverse.org/)
+-   geom_cols()
+-   geom_hline() y geom_vline()
+-   scale_y_continuous()
+
+Se han descargado los datos oficiales del Instituto Nacional de Estadística (http://www.ine.es), la población residente por fecha, sexo y edad a fecha del 1 de enero de 2022. El fichero [966b3c.csv](http://www.ine.es/jaxiT3/Tabla.htm?t=9663&L=0) se encuentra accesible desde el notebook.
+
+```{r}
+poblacion_raw<-read.csv("data/9663bsc.csv",skip=0,fileEncoding="ISO-8859-1",header=T, sep=';',stringsAsFactor=F)
+head(poblacion_raw,7)
+```
+
+Tenemos que transformar los datos para tener un dataframe con 4 columnas:
+
+-   Total: Total de población que existe para una determinada edad (Mujeres+Hombres)
+-   Hombres: Total de hombres que existe para una determinada edad
+-   Mujeres: Total de mujeres que existe para una determinada edad
+-   edad: Edad en años de ese segmento de la población
+
+```{r}
+library(dplyr)
+library(tidyr)
+
+#poblacion_raw$Total <- as.numeric(gsub('\\.','',poblacion_raw$Total))
+
+poblacion_raw |> 
+  mutate(Total=as.numeric(gsub('\\.','',Total))) |>
+  pivot_wider(names_from = Sexo, values_from = Total) |>
+  mutate(edad=as.numeric(gsub('año(s|)','',Edad.simple))) |> 
+  drop_na() |>
+  rename(Total='Ambos sexos') |>
+  arrange(edad) |>
+  select(edad, Total, Hombres, Mujeres) -> poblacion
+head(poblacion)
+```
+
+```{r}
+paste("La población total de españa es de", format(sum(poblacion$Total),big.mark='.',decimal.mark=','),"habitantes.")
+```
+
+```{r}
+paste("En españa hay",sum(poblacion$Mujeres),
+      "mujeres y ", 
+      sum(poblacion$Hombres),
+      "hombres.")
+```
+
+```{r}
+paste("La moda, la edad más común, es de",
+      poblacion$edad[which.max(poblacion$Total)],
+      "años")
+```
+
+Para calcular la media de la edad si tenemos un grupo de 5 personas:
+* 3 personas de 1 año de edad
+* 2 personas de 4 años de edad
+
+La media sería (1+1+1+4+4)/5 o de otra forma (3*1+2*4)/5
+```{r}
+paste("La media de edad de la población española es",
+      round(sum(poblacion$edad*poblacion$Total)/sum(poblacion$Total),1),
+      "años.")
+```
+
+```{r}
+edad<-65
+porc_edad <- sum(poblacion$Total[poblacion$edad>edad])/sum(poblacion$Total)*100
+
+paste0("El porcentaje de personas con una edad superor a ",
+     edad,
+     " años es del ",
+      round(porc_edad,2),"%")
+```
+
+```{r}
+edad1<-18
+edad2<-65
+
+porc_edad <- sum(poblacion$Total[poblacion$edad>=18 & poblacion$edad<=65   ])/sum(poblacion$Total)*100
+
+
+paste0("El porcentaje de personas con una edad entre ",
+     edad1," y ",edad2,
+     " (ambas edades incluidas) años es del ",
+      round(porc_edad,2),"%")
+```
+
+#### Histograma de la población
+
+```{r}
+library(ggplot2)
+ggplot(poblacion, aes(x=edad, y=Total))+geom_col()+
+  geom_vline(xintercept = 45, color='blue')+
+  geom_vline(xintercept = 67, color='red')+
+  geom_vline(xintercept = 82, color='green')
+```
+
+```{r}
+ggplot(data = poblacion, aes(x=edad))+
+  geom_col(aes(y=-1*Mujeres),fill='red')+
+  geom_col(aes(y=Hombres),fill='blue')+
+  scale_y_continuous(breaks = seq(-5e5, 5e5, length.out=11), 
+                     labels=format(abs(seq(-5e5, 5e5, length.out=11)),big.mark = '.',decimal.mark = ',', scientific = F))+
+  xlab("Edad")+ylab('Mujeres          Hombres')+
+  ggtitle("Pirámide poblacional de España", subtitle = "Datos 2022")+
+  coord_flip()+
+  theme_bw()
+  
+```
+
+Evolución del porcentaje de Hombres vs Mujeres en función con la edad
+
+```{r}
+#poblacion$porcentaje <- (poblacion$Hombres/poblacion$Mujeres-1)*100
+poblacion <- poblacion |> 
+  mutate(porcentaje=(Hombres/Mujeres-1)*100) |>
+  mutate(mas_hombres=porcentaje>0)
+
+ggplot(poblacion, aes(x=edad, y=porcentaje, fill=mas_hombres))+
+  geom_col()+labs(fill='Hay más hombres')+
+  scale_x_continuous(breaks = seq(0,100,10))+
+  geom_hline(yintercept=7, color='red')
+
+```
+
+Más información [aquí](https://www.ine.es/ss/Satellite?L=es_ES&c=INESeccion_C&cid=1259926722525&p=%5C&pagename=ProductosYServicios%2FPYSLayout)
+
+## Meteorologia
+
+La librería Nasa power contiene información de temperatura, precipitación y humedad obtenida por https://cran.r-project.org/web/packages/nasapower/vignettes/nasapower.html
+
+```{r}
+library('nasapower')
+library(tidyverse)
+library(zoo)
+```
+
+```{r}
+today <- format(Sys.time(), "%Y-%m-%d")
+today
+```
+
+```{r}
+df_weather <- get_power(
+  community = "ag",
+  lonlat = c(-3.7554784, 40.4250967),
+  pars = c("RH2M", "T2M", "PRECTOTCORR", "T2M_MAX","T2M_MIN", "T10M_MAX","T10M_MIN"),
+  dates = c("1981-01-01", today),
+  temporal_api = "daily"
+)
+```
+
+```{r}
+df_weather <- df_weather[!is.na(df_weather$T2M),]
+tail(df_weather)
+```
+```{r}
+str(df_weather)
+```
+
+Vamos a pintar la temperatura media
+```{r}
+ggplot(df_weather, aes(x=YYYYMMDD,y=T2M))+geom_line()
+```
+
+Vamos a calcular la tempera media anual en una ventana movil
+
+```{r}
+df_weather <- df_weather |> 
+  mutate(avg_temp=rollmean(T2M, k=365, fill=NA, align = 'right')) |>
+  mutate(avg_rain=rollmean(PRECTOTCORR, k=365, fill=NA, align = 'right'))
+```
+
+```{r}
+g1<-ggplot(df_weather, aes(x=YYYYMMDD,y=T2M))+
+  geom_line()+
+  geom_line(aes(y=avg_temp), color='blue')+
+  geom_hline(yintercept = mean(df_weather$T2M),color='red')+
+  ggtitle("Temperatura media diaria")+xlab("Fecha")+ylab("Temperatura ºC")
+
+g2<-ggplot(df_weather, aes(x=YYYYMMDD,y=PRECTOTCORR))+
+  geom_line()+
+  geom_line(aes(y=avg_rain), color='blue')+
+  geom_hline(yintercept = mean(df_weather$PRECTOTCORR),color='red')+
+  ggtitle("Precipitación media diaria")+xlab("Fecha")+ylab("Precipitacion mm/day")
+
+gridExtra::grid.arrange(g1, g2, ncol=2)
+```
+Vamos a calcular la temperatura media anual, una muestra por cada año
+```{r}
+df_weather |> 
+  mutate(year=as.numeric(format(YYYYMMDD, format='%Y'))) |>
+  group_by(year) |>
+  summarise(avg_temp=mean(T2M, na.rm = T),
+            avg_rain=mean(PRECTOTCORR, na.rm = T),
+            avg_temp_min=mean(T2M_MIN, na.rm=T),
+            avg_temp_max=mean(T2M_MAX, na.rm=T)
+            ) |> filter(year!=2023) -> df_weather_year
+#filter(year!=2023) equivale a:
+#df_weather <- df_weather[df_weather$year != 2023,] 
+tail(df_weather_year)
+```
+
+```{r}
+g1 <- ggplot(df_weather_year, aes(x=year, y=avg_temp))+
+  geom_line(color='blue')+geom_point(color='red')+
+  geom_smooth(color='#AA33FF')+
+  ggtitle("Temperatura media anual")+xlab("Año")+ylab("Temperatura ºC")
+g2 <- ggplot(df_weather_year, aes(x=year, y=avg_rain))+
+  geom_line(color='blue')+geom_point(color='red')+
+  ggtitle("Precipitacion media diaria (media anual)")+xlab("Año")+ylab("Precipitacion mm/day")
+gridExtra::grid.arrange(g1,g2,nrow=2)
+```
+
+```{r}
+g1 <- ggplot(df_weather_year, aes(x=year, y=avg_temp_min))+
+  geom_line(color='blue')+geom_point(color='red')+
+  geom_smooth(color='#AA33FF')+
+  ggtitle("Temperatura minima anual")+xlab("Año")+ylab("Temperatura ºC")
+g2 <- ggplot(df_weather_year, aes(x=year, y=avg_temp_max))+
+  geom_line(color='blue')+geom_point(color='red')+
+    geom_smooth(color='#AA33FF')+
+  ggtitle("Temperatura máxima anual")+xlab("Año")+ylab("Temperatura ºC")
+gridExtra::grid.arrange(g1,g2,nrow=2)
+```
+
+```{r}
+df_weather |>
+  mutate(year=as.numeric(format(df_weather$YYYYMMDD, format='%Y'))) |>
+  mutate(decada=paste('decada',floor(year/10)*10)) |>
+  filter(decada %in% c('decada 1980', 'decada 2010')) |>
+  ggplot(aes(x=T2M_MIN, fill=decada))+geom_histogram(binwidth = 2, color='blue', position='dodge')+
+  scale_x_continuous(breaks=seq(-12,30, by=2))
+```
+
+Caclular temperaturas minimas para
+* grupo1 1980-1989
+* grupo2 2013-2022
+
+```{r}
+df_weather |>
+  mutate(year=as.numeric(format(df_weather$YYYYMMDD, format='%Y'))) |>
+  mutate(group=ifelse(year>=1980 & year<=1989, 'Años 80',
+               ifelse(year>=2013 & year<=2022, 'Ultimos 10 años',
+               'NO'
+         ))) |> 
+  filter(group!='NO') |>
+  ggplot(aes(x=T2M_MIN, fill=group))+geom_histogram(binwidth = 2, color='blue', position='dodge')+
+  scale_x_continuous(breaks=seq(-12,30, by=2))
+```
+
+```{r}
+df_weather |> 
+  mutate(grupo = ifelse((df_weather$YEAR>=1980 & df_weather$YEAR<1990), "grupo1", "nada")) |> 
+  mutate(grupo = ifelse((df_weather$YEAR>=2013 & df_weather$YEAR<2023), "grupo2", grupo)) |> 
+  filter(grupo %in% c("grupo1", "grupo2") ) |>
+   ggplot(aes(x=T2M_MIN, fill=grupo))+geom_histogram(binwidth = 2, color='blue', position='dodge')+
+  scale_x_continuous(breaks=seq(-12,30, by=2))
+```
+
+
+### Evolución Co2
+
+```{r}
+df_co2 <- read_csv('https://nyc3.digitaloceanspaces.com/owid-public/data/co2/owid-co2-data.csv')
+```
+
+```{r}
+head(df_co2)
+```
+
+```{r}
+colnames(df_co2)
+```
+
+El significado de las columnas lo podemos extraer de aquí:
+
+```{r}
+read_csv('https://raw.githubusercontent.com/owid/co2-data/master/owid-co2-codebook.csv', show_col_types = FALSE)
+```
+
+vamos a ver las emisiones de Co2 de todos los paises:
+
+```{r}
+df_co2 |> group_by(year) |> summarize(co2=sum(co2,na.rm=T), 
+                                      co2_per_capita=sum(co2_per_capita,na.rm=T)) -> df_co2_anual
+```
+
+```{r}
+ggplot(df_co2_anual, aes(x=year, y=co2))+
+  xlim(c(1750,2060))+ylim(0,4e5)+geom_smooth()+
+  geom_line()+xlab('Año')+ylab('Millones de toneladas')+
+  ggtitle("Estimación de emisiones totales de CO2")+
+  scale_x_continuous(breaks = seq(1750,2060,20))
+```
+
+Y lo comparamos con las emisiones de CO2 per cápita, mediante la variable co2_per_capita
+
+```{r}
+
+```
+
+
+Vamos a importar los datos de Co2 atmosférico de aquí:
+https://www.co2.earth/co2-datasets
+
+para ver su evolución. Esta es la concentración de Co2 que hay en la atmósfera, frente a las otras gráficas que son las estimaciones de las emisiones.
+
+```{r}
+df_climate_change <- read.csv('data/climate-change.csv')
+head(df_climate_change)
+```
+
+```{r}
+df_climate_change |> filter(Entity=='World') |> select(Year, CO2.concentrations) -> df_atm_co2
+```
+
+```{r}
+df_atm_co2 |> ggplot(aes(x=Year, y=CO2.concentrations))+geom_line()+xlim(c(-1000,2023))+ylab('Partes por millón')
+```
+```{r}
+  # right_join()
+  # inner_join()
+  # full_join()
+
+
+df_co2_anual |> 
+  left_join(df_atm_co2, by=c(year='Year')  ) -> df_co2_total
+  
+df_co2_total |> ggplot(aes(x=co2, y=CO2.concentrations))+
+  geom_point()+xlab('Emisiones CO2')+ylab('Concentracion CO2 [ppm]')
+```
+
+
+```{r}
+df_co2_total |> ggplot(aes(x=year, y=CO2.concentrations))+
+  geom_point(alpha=0.1, aes(size=co2), color='red')+xlab('Año')+ylab('Concentracion CO2 [ppm]')+
+  labs(size='Emisiones CO2')
+```

@@ -1,0 +1,125 @@
+---
+jupyter:
+  kernelspec:
+    display_name: R
+    language: R
+    name: ir
+---
+
+# Introducción a R, Data Mining & Business Intelligence
+
+### Bienvenidos
+
+Esto es un notebook. Podemos escribir en lenguaje Markdown, el cual nos permite:
+* Listas
+* Escribir en **negrita** y *cursiva*
+* Más información aquí: [Markdown-Cheatsheet](https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet)
+
+### PREGUNTAD!!
+
+Sobretodo si os perdeis, no lleguemos a casos donde no sepais que estamos haciendo.
+
+![Imagen no cargada. Edita y borra la @ ](https://i.kym-cdn.com/entries/icons/original/000/008/342/ihave.jpg)
+
+## Business Intelligence
+
+El término Business Intelligence (BI) aprovecha el software y los servicios para transformar los datos en información procesable que informe las decisiones comerciales estratégicas y tácticas de una organización. Las herramientas de BI acceden y analizan conjuntos de datos y presentan hallazgos analíticos en informes, resúmenes, tableros, gráficos, tablas y mapas para proporcionar a los usuarios inteligencia detallada sobre el estado del negocio.
+
+El término Business Intelligence a menudo también se refiere a una variedad de herramientas que brindan acceso rápido y fácil de digerir a información sobre el estado actual de una organización, según los datos disponibles.
+
+
+### Herramientas BI
+
+#### De pago:
+* PowerBI: https://powerbi.microsoft.com/en-au/
+* Tableau: https://www.tableau.com/
+* Qlickview: https://www.qlik.com/
+
+### Gratuitas:
+* Metabase: https://www.metabase.com/
+* Apache Superset: https://superset.apache.org/
+
+### Lenguaje estadístico R
+
+R es un entorno y lenguaje de programación con un enfoque al análisis estadístico.
+
+Es gratuito, se distribuye bajo licencia GPL y está disponible aquí: https://www.r-project.org/
+
+# Bibliografía 
+
+
+Sobre **R**: [R for Data Science: Import, Tidy, Transform, Visualize, and Model Data](https://www.amazon.com/Data-Science-Transform-Visualize-Model/dp/1491910399/ref=sr_1_1?ie=UTF8&qid=1518791084) Este libro es bastante completo, abarca mucho temario que no veremos por falta de tiempo.
+
+# ¿Que podemos hacer con R?
+
+### Trabajar con tablas 
+
+Podemos guardar el contenido de una hoja de calculo Excel o un fichero CSV en un objeto llamado dataframe.
+
+```{r}
+activities<-read.csv('data/activities_strava.csv', stringsAsFactor=T)
+```
+
+Podemos ver las primeras filas de su contenido:
+
+```{r}
+head(activities)
+```
+
+Podemos quedarnos con las columnas que nos interesan:
+
+```{r}
+colnames(activities)
+```
+
+```{r}
+activities <- activities[,c('Activity.Name', 'Activity.Type', 'Elapsed.Time', 'Distance')]
+head(activities)
+```
+
+Podemos obtener un resumen del dataframe
+
+```{r}
+summary(activities)
+```
+
+Podemos filtrar y quedarnos solo los de una activity
+
+```{r}
+activities_ride <- activities[activities$Activity.Type=='Ride',]
+```
+
+Podemos calcular la media de una columna
+
+```{r}
+tiempo_medio_actividades <- mean(activities_ride$Elapsed.Time)
+paste("El tiempo medio de todas las actividades es:", tiempo_medio_actividades, "segundos")
+paste("El tiempo medio de todas las actividades es:", round(tiempo_medio_actividades/60,3), "minutos")
+
+paste("El tiempo medio de todas las actividades es:", round(tiempo_medio_actividades/60), "minutos y ",
+     round(tiempo_medio_actividades %% 60,1),"segundos")
+```
+
+Podemos pintar La relación entre el tiempo y la distancia:
+
+```{r}
+options(repr.plot.height=4,repr.plot.width=8, repr.plot.res = 200)
+
+library(ggplot2)
+ggplot(activities_ride, aes(x=Elapsed.Time, y=Distance, color=Activity.Name))+geom_point()+
+xlab("Tiempo [seconds]")+ylab("Distancia [km]")+ggtitle("Comparación de distancia y tiempo")
+```
+
+Podemos crear diferentes tipos de gráficos sobre la distancia:
+
+```{r}
+ggplot(activities_ride, aes(x=Activity.Name, y=Distance, color=Activity.Name))+geom_violin()+
+ylab("Distancia [km]")+ggtitle("Comparación de distancia y tiempo")
+```
+
+```{r}
+ggplot(activities_ride, aes(x=Activity.Name, y=Distance, color=Activity.Name))+geom_boxplot()+
+ylab("Distancia [km]")+ggtitle("Comparación de distancia y tiempo")
+```
+
+

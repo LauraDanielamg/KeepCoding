@@ -1,0 +1,176 @@
+---
+title: "repaso_regresion_lineal"
+format: html
+editor: visual
+---
+
+## Repaso de regresión lineal
+
+### Análisis de peso de animales
+
+```{r}
+library(MASS)
+animals <- unique(rbind(Animals, mammals))
+head(animals)
+```
+
+```{r}
+ggplot(animals, aes(x=body, y=brain))+geom_point()
+```
+Vamos a ver los pesos ouliers, los animales con una masa superior a 900kg
+```{r}
+animals |> filter(body>900)
+```
+
+
+```{r}
+animals_clean <- animals |> filter(body<9000) 
+ggplot(animals_clean, aes(x=body, y=brain))+geom_point()
+```
+```{r}
+library(GGally)
+ggpairs(animals_clean, lower = list(continuous = wrap("points", alpha = 0.3,size=0.3,color='blue')))
+```
+
+```{r}
+paste("La correlacion entre body y brain es",cor(animals_clean)['body','brain'] )
+```
+
+Vamos a dividir nuestros datos entre train y testing:
+```{r}
+set.seed(5)
+idx <- sample(1:nrow(animals_clean), nrow(animals_clean)*0.7)
+animals_clean.train <- animals_clean[idx, ]
+animals_clean.test <- animals_clean[-idx, ]
+```
+
+Vamos a analizar nuestro cojunto de test y train:
+```{r}
+print("Training:")
+summary(animals_clean.train)
+paste("Numero de filas training",nrow(animals_clean.train))
+print("Testing:")
+summary(animals_clean.test)
+paste("Numero de filas testing",nrow(animals_clean.test))
+```
+Vamos a calcular un modelo que nos diga el peso del cerebro en función del peso cuerpo
+```{r}
+model <- lm(data=animals_clean.train, formula=brain~body)
+summary(model)
+```
+
+La calidad del modelo medida en Training:
+```{r}
+animals_clean.train$pred <- predict(model, animals_clean.train)
+caret::postResample(pred=animals_clean.train$pred, obs=animals_clean.train$brain)
+```
+```{r}
+animals_clean.train$residuos <- animals_clean.train$brain - animals_clean.train$pred
+ggplot(animals_clean.train, aes(x=brain, y=residuos))+geom_point(color='blue')+
+  ggtitle("Residuos en dataset Training")
+```
+
+
+La calidad del modelo en testing (real):
+```{r}
+animals_clean.test$pred <- predict(model, animals_clean.test)
+caret::postResample(pred=animals_clean.test$pred, obs=animals_clean.test$brain)
+```
+
+```{r}
+animals_clean.test$residuos <- animals_clean.test$brain - animals_clean.test$pred
+ggplot(animals_clean.test, aes(x=brain, y=residuos))+geom_point(color='blue')+
+  ggtitle("Residuos en dataset Testing")
+```
+
+### Vamos a aplicar logaritmos en los ejex
+
+```{r}
+animals_clean <- animals |> filter(body<9000) 
+ggplot(animals_clean, aes(x=body, y=brain))+geom_point()+
+  scale_y_log10()+scale_x_log10()
+```
+Vamos a generar dos nuevas columnas donde almacenaremos el logaritmo (en base10) del peso y del cerebro:
+```{r}
+animals_clean <- animals_clean |> mutate(body_log=log10(body), brain_log=log10(brain))
+head(animals_clean)
+```
+
+```{r}
+ggpairs(animals_clean[,c('body_log','brain_log')], lower = list(continuous = wrap("points", alpha = 0.3,size=0.3,color='blue')))
+```
+
+Vamos a dividir nuestros datos entre train y testing:
+```{r}
+set.seed(5)
+idx <- sample(1:nrow(animals_clean), nrow(animals_clean)*0.7)
+animals_clean.train <- animals_clean[idx, ]
+animals_clean.test <- animals_clean[-idx, ]
+```
+
+Vamos a analizar nuestro cojunto de test y train:
+```{r}
+print("Training:")
+summary(animals_clean.train)
+paste("Numero de filas training",nrow(animals_clean.train))
+print("Testing:")
+summary(animals_clean.test)
+paste("Numero de filas testing",nrow(animals_clean.test))
+```
+Vamos a calcular un modelo que nos diga el peso del cerebro en función del peso cuerpo
+```{r}
+model_log <- lm(data=animals_clean.train, formula=brain_log~body_log)
+summary(model_log)
+```
+El modelo resultante sería:
+$$
+brain_{log} = 0.94518 + 0.73589·peso_{log} \\
+
+brain_{log} = 0.94518 + 0.73589·log10(peso_{kg}) \\
+brain_{kg}  = 10^{(0.94518 + 0.73589·log10(peso_{kg})) 
+}
+$$
+
+
+La calidad del modelo medida en Training:
+```{r}
+animals_clean.train$pred_log <- predict(model_log, animals_clean.train)
+caret::postResample(pred=animals_clean.train$pred_log, obs=animals_clean.train$brain_log)
+```
+
+
+La calidad del modelo en testing (real):
+```{r}
+animals_clean.test$pred_log <- predict(model_log, animals_clean.test)
+caret::postResample(pred=animals_clean.test$pred_log, obs=animals_clean.test$brain_log)
+```
+
+```{r}
+animals_clean.test$residuos <- animals_clean.test$brain_log - animals_clean.test$pred_log
+ggplot(animals_clean.test, aes(x=brain_log, y=residuos))+geom_point(color='blue')+
+  ggtitle("Residuos en dataset Testing")
+```
+
+
+
+```{r}
+animals_clean.test$nombre <- rownames(animals_clean.test)
+ggplot(animals_clean.test, aes(x=brain_log, y=residuos, label=nombre))+geom_text()+
+  ggtitle("Residuos en dataset Testing")
+```
+El peso de un leon macho adulto adulto son 170kg, y su tamaño de cerebro sería 240g
+https://faculty.washington.edu/chudler/facts.html
+```{r}
+peso <- 170
+df_mi_animal <- data.frame(body_log=log10(peso))
+peso_cerebro <- 10^predict(model_log, df_mi_animal)
+paste("El peso estimado del cerebro del león es de: ",peso_cerebro,"gramos")
+```
+
+```{r}
+df_mis_animales <- data.frame(body=c(0.4, 170, 70))
+df_mis_animales$body_log <- log10(df_mis_animales$body)
+df_mis_animales$brain <- 10^predict(model_log, df_mis_animales)
+df_mis_animales
+```
+

@@ -1,0 +1,21 @@
+---
+title: "Ejercicios_2023-01-11"
+format: html
+editor: visual
+---
+
+
+# Peso al nacer
+
+Leer el dataset que se encuentra en data/birthweight_reduced.csv. Quedarse con la columnas Birthweight y smoker. 
+Es un dataset donde se muestra el peso de los bebes al nacer de madres fumadoras y no fumadoras.
+
+Para cada grupo de fumadoras/no fumadoras calcular el peso medio, mediana y quartiles.
+
+Pintar un boxplot por cada grupo
+
+
+
+# Población española INE
+
+Partiendo del dataset visto en clase data/9663bsc.csv. Calcular la mediana de la edad española.

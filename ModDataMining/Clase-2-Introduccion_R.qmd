@@ -1,0 +1,292 @@
+---
+format: html
+editor: visual
+---
+
+# Introducción a R
+
+R es un lenguaje de programación orientado a la estadística.
+
+Algo parecido a SPSS o Matlab.
+
+Es código abierto y se entrega bajo licencia GPL (versión 2 o posterior). Además existen multitud de paquetes que complementan su funcionalidad.
+
+## Asignaciones
+
+Podemos usar \<- o el símbolo = para asignar un valor a una variable
+
+```{r}
+a <- 10
+b=2
+"texto variable" -> c
+```
+
+```{r}
+print(a)
+```
+
+```{r}
+paste("El valor de a es:",a)
+```
+
+## Operaciones
+
+### Operaciones matemáticas
+
+```{r}
+b+a #Suma
+b*a #Multiplicación 
+b-a #Resta
+b/a #División: 
+a%/%b #División entera: 
+a %% b #Módulo: 
+a^b #Potencia: 
+```
+
+### Otro tipo de operador
+
+```{r}
+3:10        #Secuencias
+6 %in% 3:10 #contiene
+```
+
+## Funciones básicas
+
+Las funciones \* siempre acaban en () \* pueden recibir un número variable de parámetros \* pueden existir parámetros por defecto
+
+Ver las variables en memoria:
+
+```{r}
+ls()
+```
+
+Ver el tipo de variable:
+
+```{r}
+typeof(a)
+```
+
+Para concatenar textos usamos paste(a, b, c, ...)
+
+```{r}
+paste("El valor de a es ",a)
+```
+
+# Tipos de datos
+
+## Numérico
+
+```{r}
+a <- 20
+typeof(a)
+```
+
+## Texto
+
+```{r}
+s1 <- " Discovery"
+s1
+typeof(s1)
+```
+
+## Logical
+
+```{r}
+b1 <- TRUE
+b2 <- T
+b3 <- FALSE
+typeof(b3)
+paste("El valor de b1 es",b1)
+paste("El valor de b2 es",b2)
+paste("El valor de b3 es",b3)
+```
+
+## Vectores
+
+Los vectores se crean con la función c(), todos los elementos de un vector son del mimo tipo. Es decir, no se podrían mezclar caracteres y double.
+
+En Python se llaman listas:
+
+    a = [1,2,3,40]
+
+En Java arrays:
+
+       int[] a={1,2,3,40};
+
+**En R son vectores:**
+
+       a = c(1,2,3,40)
+
+```{r}
+alturas<-c(1.80,1.60,1.50,1.90,1.75,1.63,1.65)
+print(paste("alturas es una variable de tipo:",typeof(alturas)))
+```
+
+```{r}
+alturas
+```
+
+Para obtener más información de la estrutura de una variable:
+
+```{r}
+str(alturas)
+```
+
+```{r}
+myTxt     <- c("rojo","verde","azul")
+myTxt
+```
+
+#### Acceso a elementos:
+
+```{r}
+print(paste("El valor del tercer elemento es:",alturas[3]))
+```
+
+**¡¡En R los vectores empiezan en 1!!**
+
+Podemos ver los 3 primeros elementos así:
+
+```{r}
+las3_alturas <- paste(alturas[c(1,2,3)], collapse=', ')
+paste("Alturas del 1 al 3 es:", las3_alturas)
+```
+
+## Data Frame
+
+Un Dataframe es una tabla como la que podemos encontrar en cualquier hoja de calculo.
+
+![](pics/ejemplo_dataframe.png)
+
+La información se estructura en columnas, cada columna puede ser de un tipo de variable diferente: categorica, numerica, fecha, etc..
+
+Cada fila representa un elemento u objeto cuyos atributos están representados por las columnas.
+
+```{r}
+df <- data.frame(Animal=c('Perro', 'Periquito', 'Gato', 'Caballo'),
+                 Cantidad=c(10,3,4,1),
+                 Peso=c(30, 0.01, 2, 500))
+```
+
+```{r}
+df
+```
+
+Podemos acceder a por filas y columnas:
+
+```{r}
+df[1,]
+```
+
+```{r}
+df[,1]
+```
+
+Puedo acceder por nombre:
+```{r}
+df$Cantidad
+```
+```{r}
+df[,'Cantidad']
+```
+
+
+Podemos buscar aquellos que pesan más de 20kg
+
+```{r}
+df[df$Peso>20,]
+```
+```{r}
+df[df[,'Peso']>20,]
+```
+
+```{r}
+paste('Los animales que pesan más de 20kg son:', paste(df[df$Peso>20,'Animal'], collapse=','))
+```
+
+También podemos utilizar la función which() por dos motivos:
+* Tiene en cuenta los NA
+* Es ligeramente más rápido
+```{r}
+df[which(df$Peso>20),]
+```
+
+### Ejemplo: Actividad deportiva
+
+```{r}
+activities<-read.csv('data/activities_strava.csv', stringsAsFactor=T)
+head(activities)
+```
+
+
+
+Nos podemos quedar con ciertas columnas de interés:
+
+```{r}
+activities <- activities[,c('Activity.Name', 'Activity.Type', 'Elapsed.Time', 'Distance')]
+activities$duracion_minutos <- activities$Elapsed.Time/60
+head(activities)
+```
+
+Podemos ver su estructura:
+```{r}
+str(activities)
+```
+Podemos ver los nombres de las columnas:
+```{r}
+colnames(activities)
+```
+
+```{r}
+colnames(activities) <- c('Nombre_actividad','Tipo actividad', 'duracion_segundos', 'distancia', 'duracion_minutos')
+str(activities)
+```
+
+```{r}
+summary(activities)
+```
+
+Podemos quedarnos solo con las actividades del tipo "Afternoon Ride" y con un tiempo inferior a 30 minutos:
+
+```{r}
+afternoon_activity <- activities[
+  which(activities$Nombre_actividad=='Afternoon Ride' &
+    activities$duracion_minutos<30),]
+head(afternoon_activity)
+```
+
+```{r}
+summary(afternoon_activity)
+```
+```{r}
+str(afternoon_activity)
+```
+
+Podemos quedarnos solo con las actividades del tipo "Afternoon Ride" o  y con un tiempo inferior a 30 minutos y superior a 15 minutos:
+```{r}
+afternoon_activity_30_15 <- activities[
+  which(activities$Nombre_actividad=='Afternoon Ride' &
+    activities$duracion_minutos<30 & 
+      activities$duracion_minutos>15),]
+head(afternoon_activity)
+```
+
+
+Podemos quedarnos solo con las actividades del tipo "Afternoon Ride" o "Morning Ride" y con un tiempo inferior a 30 minutos y superior a 15 minutos:
+```{r}
+afternoon_activity_30_15 <- activities[
+  which( (activities$Nombre_actividad=='Afternoon Ride' |
+          activities$Nombre_actividad=='Morning Ride') &
+          activities$duracion_minutos<30 & 
+      activities$duracion_minutos>15),]
+summary(afternoon_activity_30_15)
+```
+Lo mismo:
+
+```{r}
+afternoon_activity_30_15 <- activities[
+  which( activities$Nombre_actividad %in% c('Afternoon Ride', 'Morning Ride') &
+          activities$duracion_minutos<30 & 
+      activities$duracion_minutos>15),]
+summary(afternoon_activity_30_15)
+```

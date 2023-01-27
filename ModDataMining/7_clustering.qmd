@@ -1,0 +1,677 @@
+---
+title: "practica_final"
+format: html
+editor: visual
+---
+# Clustering
+
+Clustering o agrupamiento es una estrategia de aprendizaje no supervisado en el cual se agrupan elementos que presentan características **similares**.
+
+### Ejemplo:
+
+Tenemos los siguientes serer vivos:
+* vaca
+* calamar
+* perro
+* sepia
+* petunia
+* ornitorrinco
+* abeto
+* naranjo
+
+Queremos clasificarlos en **3 grupos** basándonos en sus características. Una posible clasificación sería:
+* Grupo 1: vaca, perro, ornitorrinco
+* Grupo 2: calamar, sepia
+* Grupo 3: abeto, naranjo, petunia
+
+Podemos hacer una clasificación jerárquica basada en similitudes:
+
+
+![](pics/organismos.png)
+
+## Distancias
+
+Antes de podes agrupar elementos por su similitud tenemos que definir la *similitud*. Para ello vamos a crear una media de la diferencia, de como de separados están dos elementos del grupo. Ejemplos de distancias:
+* Distancia Euclídea: $L_2$=$\left \|  \vec{a}-\vec{b} \right \|_2 = \sqrt{\sum_i \left ( a_i-b_i \right )^2}$
+* Distancia Manhattan: $L_1$=$\left \|  \vec{a}-\vec{b} \right \| =  \sum_i \left \| a_i-b_i \right \| $
+* Distancia Minkowsky: $\left \|  \vec{a}-\vec{b} \right \|_p = \left ( \sum_i \mid a_i-b_i \mid^p \right )^\frac{1}{p}$
+![](pics/distancia.png)
+
+Distancia con textos:
+* Distancia Hamming: La distancia de hamming entre dos cadenas de igual longitud es el número de posiciones en el cual los simbolos son diferentes.
+* Distancia Levenshtein: La distancia Levenshtein entre dos palabras es el mínimo número de ediciones de un solo caracter (inserción, eliminación o sustitución) para que las dos palabras sean iguales.
+
+
+Más sobre distancias:
+
+https://towardsdatascience.com/9-distance-measures-in-data-science-918109d069fa
+
+## Métodos de clustering
+
+### Particionado
+
+#### K-means
+
+Se basa en centroides. El centroide o centro geométrico es el punto resultante de la media aritmética de la posición de todos los puntos.
+
+
+```
+1 - elige k centroides al azar
+2 - asigna el elemento al centroide más cercano
+3 - recalcular centroides
+4 - Repetir desde 2 mientras los centroides se sigan actualizando.
+```
+
+```{r}
+
+N<-300
+x1<-c(rnorm(N,mean=2,sd=2),rnorm(N,mean=-2,sd=2),rnorm(N,mean=-5,sd=1))
+x2<-c(0.4*x1+c(rnorm(N,mean=3,sd=2),rnorm(N,mean=-3,sd=1),rnorm(N,mean=7,sd=1)))
+df<-data.frame(x1,x2)
+
+library(ggplot2)
+ggplot(data=df, aes(x=x1,y=x2))+geom_point(alpha=0.7)
+```
+
+```{r}
+mydistance<-function(v1,v2){
+        sqrt((v1[1]-v2[1])^2+(v1[2]-v2[2])^2)
+}
+
+assign_points_to_centroid<-function(mydata,centroids){        
+    group<-rep(NA,nrow(mydata))
+    for (i in 1:nrow(mydata)){
+        distance_to_centroids<-rep(NA,nrow(centroids))
+        for (j in 1:nrow(centroids)){
+            distance_to_centroids[j]<-mydistance(mydata[i,],centroids[j,])
+        }        
+        group[i]<-which.min(distance_to_centroids)
+    }   
+    group
+}
+
+get_new_centroids<-function(mydata,group){
+    k<-length(unique(group))
+    centroids<-data.frame(x1=rep(NA,k),x2=rep(NA,k))
+    for (i in 1:k){
+        idx<-which(i == group)        
+        centroids[i,]<-colMeans(mydata[idx,])
+    }
+    centroids
+}
+
+plot_all<-function(mydata,centroids,group){
+    mydata$group<-factor(group)
+    mydata$centroidx1<-centroids$x1[group]
+    mydata$centroidx2<-centroids$x2[group]
+    ggplot(data=mydata,aes(x=x1,y=x2))+geom_point(color=group,size=0.5)+
+        geom_point(aes(x=centroidx1,y=centroidx2),shape="*",size=5,color="purple")
+}
+
+
+#centroids<-data.frame(x1=c(1,2),x2=c(1,1))
+centroids<-data.frame(x1=c(1,2,3),x2=c(1,1,1))
+centroids
+group<-assign_points_to_centroid(df,centroids)
+plot_all(df,centroids,group)
+
+centroids<-get_new_centroids(df,group)
+centroids
+```
+
+Este algorimo lo implementa R:
+```
+kmeans(data.frame, k)
+```
+
+```{r}
+
+```
+
+### Medidas de la calidad de un cluster
+
+Un cluster tiene que cumplir dos propiedades:
+* Los elementos dentro de un mismo grupo tienen que estar lo más cerca posible entre si. La distancia media *intracluster* tiene que ser baja.
+![](pics/intragrupo.png)
+
+* Los elementos de distintos grupos tienen que estar lo más lejos posibles uno de otro. La distancia media *intercluster* tiene que ser alta.
+![](img/intergrupo.png)
+
+
+Una forma de medirlo es con el SSE (Sum Square Errors).
+
+* $SSE_{intra}$: Se define para cada grupo. Es la suma de distancias al cuadrado entre los puntos de un cluster y el centroide.
+* $SSE_{inter}$: Se define para todos. Es la suma de las distancias al cuadrado entre los centroides de un cluster (ponderado al número de elementos del cluster) y el centroide de los centroides.
+* $SSE_{total}$: $SSE_{inter}$+$\sum SSE_{intra}$
+
+Una forma de medir la calidad de un cluster es el ratio:
+$$
+\frac{SSE_{inter}}{SSE_{total}}
+$$
+Cuanto más cercano a 1, mejor es la división entre clusters
+
+```{r}
+paste("SSE intra:", paste(round(myclust$withinss),collapse=", "))
+paste("SSE inter:", myclust$betweenss)
+paste("SSE total:", myclust$totss)
+paste("SSE total:", sum(myclust$withinss)+myclust$betweenss)
+```
+
+```{r}
+sse_per_cluser<-function(mydata_all,group,centroids){
+    ssq<-rep(NA,nrow(centroids))
+    for (k in 1:nrow(centroids)){
+        mydata<-mydata_all[group==k,]
+        h<-0
+        for (i in 1:nrow(mydata)){            
+            h<-h+sum((mydata[i,]-centroids[k,])^2)
+        }        
+        ssq[k]<-h
+    }
+    ssq
+}
+#sse_per_cluser(df,group,centroids)
+sse_per_cluser(df,myclust$cluster,myclust$centers)
+```
+
+```{r}
+sse_betweeness<-function(group,centroids){
+    sum((centroids[group,1]-mean(centroids[group,1]))^2)+
+    sum((centroids[group,2]-mean(centroids[group,2]))^2)
+}
+#sse_betweeness(group,centroids)
+sse_betweeness(myclust$cluster,myclust$centers)
+```
+
+### Determinando el número óptimo de clusters para k-means
+
+No existe una regla fija para determinar el número de grupos. Podemos pintar como evoluciona el error cuadrádico y cuando deje de mejorar rápidamente establecer como el número de clusters.
+
+```{r}
+q<-c()
+for (k in 1:8){
+    myclust<-kmeans(df,k)
+    q[k]<-myclust$betweenss/myclust$totss
+}
+plot(q)
+```
+
+Otra forma es mirando $\sum SSE_{intra}$:
+
+```{r}
+q<-c()
+for (k in 1:8){
+    myclust<-kmeans(df,k)
+    q[k]<-sum(myclust$withinss)
+}
+plot(q)
+```
+
+#### Ejemplo Iris
+
+Conjunto de datos de iris (de Fisher o Anderson) da las medidas en centímetros de las variables longitud y ancho del sépalo y longitud y ancho del pétalo, respectivamente, para 50 flores de cada una de las 3 especies de iris. Las especies son Iris setosa, versicolor y virginica.
+
+```{r}
+boxplot(iris)
+summary(iris)
+```
+
+```{r}
+
+```
+
+#### Ejemplo proteinas
+
+
+https://archive.ics.uci.edu/ml/datasets/Mice+Protein+Expression
+
+El conjunto de datos consiste en los niveles de expresión de 77 proteínas / modificaciones de proteínas que produjeron señales detectables en la fracción nuclear de la corteza. Hay 38 ratones de control y 34 ratones trisómicos (síndrome de Down), para un total de 72 ratones. En los experimentos, se registraron 15 mediciones de cada proteína por muestra / ratón. Por lo tanto, para los ratones de control, hay 38x15, o 570 mediciones, y para los ratones trisómicos, hay 34x15, o 510 mediciones. El conjunto de datos contiene un total de 1080 mediciones por proteína. Cada medida puede considerarse como una muestra / ratón independiente.
+
+Las ocho clases de ratones se describen en función de características como el genotipo, el comportamiento y el tratamiento. Según el genotipo, los ratones pueden ser de control o trisómicos. Según el comportamiento, algunos ratones han sido estimulados para aprender (shock de contexto) y otros no (contexto de shock) y para evaluar el efecto del medicamento memantina en la recuperación de la capacidad de aprender en ratones trisómicos, algunos ratones han sido inyectado con la droga y otros no.
+
+Clases
+* c-CS-s: ratones de control, estimulados para aprender, inyectados con solución salina (9 ratones)
+* c-CS-m: ratones de control, estimulados para aprender, inyectados con memantina (10 ratones)
+* c-SC-s: ratones de control, no estimulados para aprender, inyectados con solución salina (9 ratones)
+* c-SC-m: ratones de control, no estimulados para aprender, inyectados con memantina (10 ratones)
+
+* t-CS-s: ratones con trisomía, estimulados para aprender, inyectados con solución salina (7 ratones)
+* t-CS-m: ratones con trisomía, estimulados para aprender, inyectados con memantina (9 ratones)
+* t-SC-s: ratones con trisomía, no estimulados para aprender, inyectados con solución salina (9 ratones)
+* t-SC-m: ratones con trisomía, no estimulados para aprender, inyectados con memantina (9 ratones)
+
+
+```{r}
+mouse<-read.csv("data/Data_Cortex_Nuclear.csv")
+mouse_data<-mouse[,2:78]
+```
+
+```{r}
+boxplot(mouse_data)
+```
+
+```{r}
+```
+
+### Más medidas de calidad de un cluster (ASW)
+
+Average silhouette width (ASW)
+
+La medida de *silhouette* nos dice como de similar es un objeto a su propio cluster (cohesión) comparado con otros clusters (separación).
+
+Su valor va entre:
+* -1 : La muestra no se parece demasiado a sus vecinos y se diferencia poco de las de otro cluster
+* 1  : La muestra se parece mucho a sus vecinos y muy poco a las de otro cluster
+
+Se da un valor por muestra, si la mayor parte de las muestras tienen un valor alto entonces la configuración del cluster es buena.
+
+Su valor s(i) se calcula como:
+
+
+$$
+s(i)=\frac{b(i)-a(i)}{max \left ( a(i), b(i) \right )}
+$$
+
+donde a(i) es la media de la distancia entre i y todos los puntos de su mismo cluster: 
+
+$$
+a(i)=\frac{1}{\mid C(i) \mid -1 } \sum_{x \in C(i)} d(x_i,x)
+$$
+
+
+y b(i) es la distancia media de *i* al cluster más parecido (el que tiene una menor distancia media):
+
+$$
+b(i)=min_{j \notin C(i)} \frac{1}{\mid C(j) \mid } \sum_{x \in C(j)} d(x_i,x)
+$$
+
+$C(i)$ es el cluster al cual *i* pertenece y $\mid C(i) \mid$ es el número de elementos en ese cluster.
+
+
+```{r}
+
+
+N<-300
+x1<-c(rnorm(N,mean=2,sd=2),rnorm(N,mean=-2,sd=2),rnorm(N,mean=-5,sd=1))
+x2<-c(0.4*x1+c(rnorm(N,mean=3,sd=2),rnorm(N,mean=-3,sd=1),rnorm(N,mean=7,sd=1)))
+df<-data.frame(x1,x2)
+
+library(ggplot2)
+ggplot(data=df, aes(x=x1,y=x2))+geom_point(alpha=0.7)
+```
+
+```{r}
+library(cluster)
+
+q<-c()
+for (k in 2:8){
+    myclust<-kmeans(df,k)
+    ss<-silhouette(myclust$cluster, dist(df))    
+    q[k]<-mean(ss[, "sil_width"])
+}
+plot(q)
+```
+
+```{r}
+k<-3
+myclust<-kmeans(df,k)
+ss<-silhouette(myclust$cluster, dist(df))  
+summary(ss)
+plot(ss,col=1:k,border=NA)
+```
+
+```{r}
+str(dist(iris_data))
+```
+
+```{r}
+q<-c()
+for (k in 2:20){
+    myclust<-kmeans(iris_data,k)
+    ss<-silhouette(myclust$cluster, dist(iris_data))    
+    q[k]<-mean(ss[, "sil_width"])
+}
+plot(q)
+```
+
+```{r}
+k<-2
+myclust<-kmeans(iris_data,k)
+ss<-silhouette(myclust$cluster, dist(iris_data))  
+summary(ss)
+plot(ss,col=1:k,border=NA)
+
+table(iris$Species,myclust$cluster)
+```
+
+####  Ejemplo aceite de oliva
+
+
+Composición en porcentaje de ocho ácidos grasos encontrados en 572 aceites de oliva italianos:
+
+* region. Región de Italia.
+* area. Área de Italy.
+* palmitic. % de ácido palmítico en la muestra.
+* palmitoleic. % de ácido palmitoleico en la muestra.
+* stearic. % de ácido esteárico en la muestra.
+* oleic. % de ácido oleico en la muestra.
+* linoleic. % de ácido linoleico en la muestra.
+* linolenic. % de ácido linolénico en la muestra.
+* arachidic. % de ácido araquidónico en la muestra.
+* eicosenoic. % de ácido eicosenoico en la muestra.
+
+```{r}
+library(dslabs)
+```
+
+```{r}
+head(olive)
+```
+
+```{r}
+library(GGally)
+options(repr.plot.height=4,repr.plot.width=8,repr.plot.res = 300)
+ggpairs(olive[,c("palmitic","palmitoleic","stearic","oleic","linoleic","linolenic","arachidic","eicosenoic")],
+       lower = list(continuous = wrap("points", alpha = 0.3,size=0.1,color='blue'))
+       )
+```
+
+```{r}
+```
+
+#### PAM (Partitioning Around Medoids) - k-medoids
+
+Se basa en medoides. Es similar al kmeans pero en lugar de usar centroides se basa en medoides El centroide o centro geométrico es el punto resultante de la media aritmética de la posición de todos los puntos.
+
+
+```
+1 - elige k muestras al azar entre todas las muestras
+2 - asigna el elemento al medoide más cercano
+3 - recalcular medoides:
+3.1 - Calcula la suma de la distancia de cada candidato a medoide con el resto de los puntos.
+3.2 - Elije como medoide el punto cuya suma de las distancias sea menor.
+4 - Repetir desde 2 mientras los medoides se sigan actualizando y el error siga disminuyendo.
+```
+
+El ligeramente más robusto que el kmeans porque este depende de la suma de elementos, no de la suma al cuadrado.
+
+Funciona con definiciones de medidas arbitrarias.
+
+https://www.rdocumentation.org/packages/cluster/versions/2.1.0/topics/pam
+
+```{r}
+
+N<-300
+x1<-c(rnorm(N,mean=2,sd=2),rnorm(N,mean=-2,sd=2),rnorm(N,mean=-5,sd=1))
+x2<-c(0.4*x1+c(rnorm(N,mean=3,sd=2),rnorm(N,mean=-3,sd=1),rnorm(N,mean=7,sd=1)))
+df<-data.frame(x1,x2)
+
+library(ggplot2)
+ggplot(data=df, aes(x=x1,y=x2))+geom_point(alpha=0.7)
+```
+
+```{r}
+cl <- factor(pam(df,k=3, cluster.only=TRUE))
+
+clustered<-cbind(df,group=cl)
+summary(clustered)
+ggplot(data=clustered,aes(x=x1,y=x2,color=group))+geom_point(size=0.5)
+```
+
+```{r}
+pam_cl<-pam(df,k=3, metric="manhattan")
+pam_cl$medoids
+```
+
+```{r}
+
+cl<-factor(pam_cl$clustering)
+
+clustered<-cbind(df,group=cl)
+summary(clustered)
+ggplot(data=clustered,aes(x=x1,y=x2,color=group))+geom_point(size=0.5)+
+ geom_point(x=pam_cl$medoids[1,1],y=pam_cl$medoids[1,2],color="black",shape='O',size=3)+
+ geom_point(x=pam_cl$medoids[2,1],y=pam_cl$medoids[2,2],color="black",shape='O',size=3)+
+ geom_point(x=pam_cl$medoids[3,1],y=pam_cl$medoids[3,2],color="black",shape='O',size=3)
+```
+
+```{r}
+pr<-pam(df,k=3, metric="manhattan")
+str(pr)
+```
+
+```{r}
+silhouette(pr)
+```
+
+
+#### Ejemplo con mouse_data
+
+```{r}
+mouse<-read.csv("data/Data_Cortex_Nuclear.csv")
+mouse_data<-mouse[,2:78]
+
+preProcValues <- caret::preProcess(mouse_data, method = c("center", "scale"))
+mouse_data_transformed <- predict(preProcValues, mouse_data)
+
+qsil<-c()
+for (k in 2:20){
+    pr<-pam(mouse_data_transformed,k=k, metric="manhattan")
+    ss<-silhouette(pr)
+    qsil[k]<-mean(ss[, "sil_width"])
+}
+plot(qsil)
+```
+
+```{r}
+k<-4
+pr<-pam(mouse_data_transformed,k=k, metric="manhattan")
+ss<-silhouette(pr)
+plot(ss,col=1:k,border=NA)
+```
+
+```{r}
+table(mouse$class,pr$cluster)
+table(mouse$Genotype,pr$cluster)
+table(mouse$Treatment,pr$cluster)
+table(mouse$Behavior,pr$cluster)
+```
+
+## Algoritmos jerárquicos
+
+Se basa en la idea central de que los objetos están más relacionados con objetos cercanos que con objetos más alejados. Estos algoritmos conectan "objetos" para formar "clusters" en función de su distancia. Hay dos enfoques para abordar este problema de agrupamiento:
+
+* Aglomerativo (de abajo arriba): cada elemento comienza en su propio clúster. Iterativamente, los clústeres más similares se fusionan para finalizar con un gran clúster que contiene todos los elementos.
+* Divisivo (de arriba hacia abajo): todos los elementos pertenecen al mismo grupo. Este clúster se divide iterativamente hasta que todos los clusters tengan solo un elemento.
+
+La fusión o división de clusters se realiza en base a diferentes métodos para medir estas similitudes de clusters:
+
+* single-linkage (SLCA): la distancia entre dos clusters es la distancia mínima que existe entre dos elementos que pertenecen a diferentes clusters.
+![](pics/cluster_single.png)
+* complete-linkage (CLCA): la distancia entre dos clústeres es la distancia máxima que existe entre dos elementos que pertenecen a diferentes clústeres.
+![](pics/cluster_complete.png)
+* average-linkage (unweighted pair group method with arithmetic mean, UPGMA): la distancia entre dos clusters es la distancia promedio que existe desde cualquier elemento en el primer clúster a cualquier elemento en el otro clúster.
+![](pics/cluster_average.png)
+* cendroid-linkage (Unweighted pair group method with centroid, UPGMC): la distancia entre dos clusters es la distancia que existe entre los centroinds de cada cluster.
+![](pics/cluster_centroid.png)
+
+### Ejemplo Iris
+
+```{r}
+iris_data<-iris[,1:4]
+
+for (i in 1:ncol(iris_data)){     
+    mn<-mean(iris_data[,i],na.rm = T)
+    sd<-sd(iris_data[,i],na.rm = T)
+    
+    iris_data[,i]<-(iris_data[,i]-mn)/sd    
+}
+```
+
+```{r}
+d <- dist(as.matrix(iris_data),method = "euclidean")
+hc <- hclust(d,method="complete")
+hcd <- as.dendrogram(hc)
+par(cex=0.3)
+plot(hcd)
+```
+
+```{r}
+iris$Species[labels(hcd)]
+```
+
+```{r}
+#| scrolled: false
+library(dendextend)
+options(repr.plot.height=8,repr.plot.width=6,repr.plot.res = 300)
+labels(hcd)<-iris$Species[labels(hcd)]
+hcd<-set(hcd,"labels_cex", 0.45) 
+plot(color_branches(hcd,h=2),horiz=TRUE,cex=0)
+abline(v=2,col="red")
+options(repr.plot.height=4,repr.plot.width=6,repr.plot.res = 300)
+```
+
+```{r}
+#| scrolled: false
+plot(cut(hcd, h = 2)$upper, main = "Corte", cex=1)
+```
+
+```{r}
+cut(hcd, h = 2)$lower
+```
+
+```{r}
+cutree(hc,h=2)
+```
+
+Podemos cortar el arbol a una altura dada y con cuales de las especies se correspondería:
+
+```{r}
+#d <- dist(as.matrix(iris_data),method = "euclidean")
+#hc <- hclust(d,method="complete")
+#hcd <- as.dendrogram(hc)
+
+table(iris$Species,
+      cutree(hc,h=2))
+```
+
+La función cutree_1h conserva el orden del dendrograma que hemos dibujado antes:
+
+```{r}
+table(iris$Species,
+      cutree_1h.dendrogram(hcd,h=2))
+```
+
+```{r}
+table(iris$Species,
+      cutree_1h.dendrogram(hcd,h=5))
+```
+
+```{r}
+table(iris$Species,
+      cutree_1h.dendrogram(hcd,h=4.5))
+```
+
+#### Ejemplo proteinas del ratón
+
+```{r}
+d <- dist(as.matrix(mouse_data_transformed),method = "euclidean")
+
+
+```
+
+#### Ejemplo tipos de aceite
+
+```{r}
+standarized_model <- caret::preProcess(olive, method = c("center", "scale"))
+olive_standarized = predict(standarized_model,olive)
+```
+
+
+#### Ejemplo expresión genética levadura
+
+Ejemplo sacado de:
+https://bio723-class.github.io/Bio723-book/clustering-in-r.html
+
+Utilizando el dataset del artículo:
+    Spellman PT, et al. 1998. Comprehensive identification of cell cycle-regulated genes of the yeast Saccharomyces cerevisiae by microarray hybridization. Mol Biol Cell 9(12): 3273-97.
+
+Nos vamos a descargar la matriz de expresión de 724 genes en diferentes condiciones. Vamos a gruparlos por su similaridad
+
+```{r}
+#library(tidyverse)
+spellman <- read.csv("https://github.com/Bio723-class/example-datasets/raw/master/spellman-wide.csv", stringsAsFactors = T)
+head(spellman)
+```
+
+```{r}
+summary(spellman)
+```
+
+```{r}
+1-abs(cor(spellman[,c(-1,-2)],use="pairwise.complete.obs"))
+```
+
+Las dos primeras columnas indican el tipo de experimento que se ha realizado. Las siguientes columnas indican el nivel de expresión genética del gen en cuestión, indicado por la columna.
+Por tanto cada columna, a partir de la tercera nos da los niveles de expresión de un gen en diferentes condiciones. Queremos encontrar los genes que muestran un comportamiento similar.
+
+Como distancia ahora vamos a utilizar la correlación. Más concretamente: 1-cor
+De esta forma si dos genes tienen correlación muy cercana a 1 tendrán una distancia muy cercana a 0. A menor correlación, mayor distancia.
+
+```{r}
+spellman.cor<-cor(spellman[,c(-1,-2)],use="pairwise.complete.obs")
+dim(spellman.cor)
+```
+
+```{r}
+spellman.dist<- as.dist(1 - abs(spellman.cor))
+str(spellman.dist)
+```
+
+```{r}
+spellman.tree <- hclust(spellman.dist, method="complete")
+spellman.dend <- as.dendrogram(spellman.tree) 
+```
+
+```{r}
+library(dendextend)
+
+clusters <- cutree(spellman.dend, k=4)
+plot(color_branches(spellman.dend, k=4),leaflab="none")
+```
+
+```{r}
+library(cluster)
+ss<-silhouette(clusters, spellman.dist)
+plot(ss,col=1:max(clusters),border=NA)
+```
+
+```{r}
+names(clusters[clusters==4])
+```
+
+## Resumen Clustering
+
+
+```{r}
+library(dslabs)
+library(tidyverse)
+library(cluster)
+```
+
+```{r}
+head(gapminder)
+```
+
+```{r}
+df_2010 <- gapminder %>% filter(year==2010) %>% mutate(gdp_pc=gdp/population) %>% drop_na() %>% select(-year)
+```
+
+### Primero estandarizamos
+
+```{r}
+model_standarized<- df_2010 %>% caret::preProcess(method=c('center','scale'))
+model_standarized
+```
+
+

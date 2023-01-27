@@ -1,0 +1,63 @@
+---
+title: "Practica Final"
+format: html
+editor: visual
+---
+
+## Practica Data Mining
+
+Vamos a partir de un dataset que tiene 10000 filas con pesos y alturas para mujeres y hombres. Cada entrada respresenta un individuo. Cargamos el daframe con las siguientes líneas:
+
+```{r}
+library(tidyverse)
+df<-read.csv('data/peso-altura.csv')
+df$sexo <- as.factor(df$sexo)
+summary(df)
+```
+
+Responded a las siguientes preguntas:
+
+1.  ¿Cual es el peso medio por sexo?
+
+Una forma de hacerlo:
+
+```{r}
+df |> group_by(sexo) |> summarize(peso_medio=mean(peso))
+```
+
+Otra forma:
+
+```{r}
+paste("El peso medio de las mujeres es:", mean(df[df$sexo=='mujer','peso']))
+paste("El peso medio de los hombres es:", mean(df[df$sexo=='hombre','peso']))
+```
+
+2.  ¿Como podríamos obtener un histograma del peso separado por sexo?
+
+```{r}
+ggplot(df, aes(fill=sexo, x=peso))+geom_histogram(position = 'dodge')
+```
+
+3.  Si nos fijamos solo en el grupo de mujeres. ¿Cuantos Kg gana cada mujer por cada cm de altura?. Pista: Haced una regresión lineal.
+
+```{r}
+model <- lm(df[df$sexo=='mujer',], formula=peso~altura)
+paste0("Por cada cm de peso la mujer, en media, gana ",round(coef(model)['altura'],3),"cm")
+```
+
+4.  Vamos a quedarnos con las primeras 800 filas para training y las 200 restantes para testing. Crear un modelo de regresión logística en el que dado el peso y altura de una persona te la clasifique como hombre o mujer. Para un umbral de 0, ¿Cual es la exactitud (o accuracy) del modelo?
+
+```{r}
+df$sexo <- as.factor(df$sexo)
+df_training <- df[1:800,]
+df_testing <- df[801:1000,]
+model <- glm(df_training, formula=sexo~altura+peso, family=binomial())
+cf <- caret::confusionMatrix(data=factor(predict(model,df_testing)>0, labels=c('hombre','mujer') ), reference=df_testing$sexo )
+paste0("Su exactitud o accuracy es: ",cf$overall['Accuracy']*100,"%")
+```
+
+5.  Según el modelo anterior, ¿que probabilidad aproximada de ser mujer podríamos asignar a una persona que pesa 70kg y mide 165cm?
+
+```{r}
+paste0("La probabilidad aproximada sería del ", round(predict(model,data.frame(peso=70,altura=165), type='response'),2)*100,"%")
+```

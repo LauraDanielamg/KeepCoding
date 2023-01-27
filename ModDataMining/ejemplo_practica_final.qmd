@@ -1,0 +1,28 @@
+---
+title: "Practica Final"
+format: html
+editor: visual
+---
+
+## Practica Data Mining
+
+Vamos a partir de un dataset que tiene 10000 filas con pesos y alturas para mujeres y hombres. Cada entrada respresenta un individuo. Cargamos el daframe con las siguientes líneas:
+
+```{r}
+library(tidyverse)
+df<-read.csv('data/peso-altura.csv')
+df$sexo <- as.factor(df$sexo)
+head(df)
+```
+
+Responded a las siguientes preguntas:
+
+1.  ¿Cual es el peso medio por sexo?
+
+2.  ¿Como podríamos obtener un histograma del peso separado por sexo?
+
+3.  Si nos fijamos solo en el grupo de mujeres. ¿Cuantos Kg gana cada mujer por cada cm de altura?. Pista: Haced una regresión lineal.
+
+4.  Vamos a quedarnos con las primeras 800 filas para training y las 200 restantes para testing. Crear un modelo de regresión logística en el que dado el peso y altura de una persona te la clasifique como hombre o mujer. Para un umbral de 0, ¿Cual es la exactitud (o accuracy) del modelo?
+
+5.  Según el modelo anterior, ¿que probabilidad aproximada de ser mujer podríamos asignar a una persona que pesa 70kg y mide 165cm?

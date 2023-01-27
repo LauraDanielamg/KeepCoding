@@ -1,0 +1,161 @@
+---
+title: "repaso_dia_1"
+format: html
+editor: visual
+---
+
+## Repaso dia 1
+
+Vamos a cargar un fichero CSV como dataframe:
+```{r}
+activities<-read.csv('data/activities_strava.csv')
+head(activities)
+```
+
+
+Vamos a ver cuantas columnas tenemos, y su nombre:
+```{r}
+paste("Tenemos",length(colnames(activities)),"columnas")
+```
+
+```{r}
+df_activities_lite <- activities[,c('Activity.Date', 'Activity.Name', 'Activity.Type', 'Elapsed.Time', 'Distance')]
+paste("Tenemos",length(colnames(df_activities_lite)),"columnas")
+```
+
+```{r}
+summary(df_activities_lite)
+```
+
+En R existen dos clases para definir las fechas:
+
+* Posixct: Un timestamp
+* Posixlt: Lista que tiene información de dia, mes y años
+
+```{r}
+Sys.setlocale("LC_ALL","C")
+head(df_activities_lite$Activity.Date)
+df_activities_lite$Activity.Date <- as.POSIXct(
+  df_activities_lite$Activity.Date, 
+  format="%b %d, %Y, %I:%M:%S %p")
+``` 
+
+
+Vamos a pasar a factor Activity.Name   y   Activity.Type 
+```{r}
+df_activities_lite$Activity.Name <- factor(df_activities_lite$Activity.Name)
+df_activities_lite$Activity.Type <- factor(df_activities_lite$Activity.Type)
+```
+
+
+```{r}
+summary(df_activities_lite)
+```
+
+Vamos a quedarnos con Activity.Type == 'Ride' y diferenciar entre actividades por la mañana y por la tarde:
+
+```{r}
+df_ride <- df_activities_lite[df_activities_lite$Activity.Type=='Ride', ]
+```
+
+```{r}
+df_ride_am <-  df_activities_lite[ df_activities_lite$Activity.Name=='Morning Ride', ]
+
+#df_ride_pm <-  df_activities_lite[ df_activities_lite$Activity.Name=='Afternoon Ride' | df_activities_lite$Activity.Name=='Evening Ride', ]
+df_ride_pm <-  df_activities_lite[ df_activities_lite$Activity.Name %in% c('Afternoon Ride', 'Evening Ride'), ]
+```
+
+
+```{r}
+paste("El tiempo medio del viaje por la mañana es de",round(mean(df_ride_am$Elapsed.Time)/60),"minutos")
+paste("El tiempo medio del viaje por la tarde es de",round(mean(df_ride_pm$Elapsed.Time)/60),"minutos")
+```
+
+```{r}
+paste("La mediana del viaje por la mañana es de",round(median(df_ride_am$Elapsed.Time)/60),"minutos")
+paste("La mediana del viaje por la tarde es de",round(median(df_ride_pm$Elapsed.Time)/60),"minutos")
+```
+
+```{r}
+paste0("La distancia del viaje por la mañana es de ",round(median(df_ride_am$Distance),2),"km")
+paste0("La distancia del viaje por la tarde es de ",round(median(df_ride_pm$Distance),2),"km")
+```
+
+
+Boxplot del tiempo que tardo por la mañana:
+```{r}
+boxplot(df_ride_am$Elapsed.Time/60)
+grid()
+```
+Vamos a eliminar los outliers de la muestra de por la mañana:
+```{r}
+qlist <- quantile(df_ride_am$Elapsed.Time/60, c(0.1,0.25,0.5,0.75,0.9))
+qlist
+```
+
+Podemos definir como limite superior Q3+1.5*IQR y como limite inferior Q2-1.5*IQR:
+```{r}
+lim_max <- qlist["75%"]+1.5*(qlist["75%"]-qlist["25%"])
+lim_min <- qlist["25%"]-1.5*(qlist["75%"]-qlist["25%"])
+df_ride_am_filtrado <- df_ride_am[df_ride_am$Elapsed.Time>lim_min*60 & 
+                                  df_ride_am$Elapsed.Time<lim_max*60,
+                                  ]
+```
+
+```{r}
+boxplot(df_ride_am_filtrado$Elapsed.Time/60)
+grid()
+``` 
+
+Miramos el dataset de la tarde:
+```{r}
+boxplot(df_ride_pm$Elapsed.Time/60)
+grid()
+``` 
+
+Vamos a eliminar los outliers utilizando el sentido común:
+```{r}
+quantile(df_ride_pm$Elapsed.Time/60, c(0,0.05,0.25,0.75,0.95,1))
+```
+
+```{r}
+df_ride_pm_filtrado <- df_ride_pm[df_ride_pm$Elapsed.Time>16*60 & 
+                                  df_ride_pm$Elapsed.Time<25*60,
+                                  ]
+boxplot(df_ride_pm_filtrado$Elapsed.Time/60)
+```
+
+```{r}
+library(ggplot2)
+#ggplot2::ggplot(df_ride_pm_filtrado, ggplot2::aes(y=Elapsed.Time/60))+ggplot2::geom_boxplot()
+ggplot(df_ride_pm_filtrado, aes(y=Elapsed.Time/60))+geom_boxplot()
+```
+
+```{r}
+paste("El tiempo medio sería: ", round(mean(df_ride_pm_filtrado$Elapsed.Time)/60,2),"minutos")
+paste("La mediana del tiempo sería: ", round(median(df_ride_pm_filtrado$Elapsed.Time)/60,2),"minutos")
+```
+
+Podemos ver el histograma así:
+```{r}
+ggplot(df_ride_pm_filtrado, aes(x=Elapsed.Time/60))+
+  geom_histogram(bins = 10, color='black', fill='blue')
+```
+
+```{r}
+ggplot(df_ride_pm_filtrado, aes(x=1, y=Elapsed.Time/60))+
+  geom_violin(color='black', fill='blue')
+```
+
+```{r}
+ggplot(df_ride_pm_filtrado, aes(x=Elapsed.Time/60))+
+  geom_density(color='black', fill='blue')+
+  geom_point(aes(y=0.1), alpha=0.5)+
+  geom_boxplot(width=0.1, alpha=0.2, color='red')
+```
+
+Comprobad la media de Activity.Date de df_ride_pm y df_ride_am filtrados
+```{r}
+mean(df_ride_pm_filtrado$Activity.Date)
+mean(df_ride_am_filtrado$Activity.Date)
+```

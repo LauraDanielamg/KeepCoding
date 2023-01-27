@@ -1,0 +1,263 @@
+---
+format: html
+editor: visual
+---
+
+# Funciones en R
+
+Vamos a crear nuestra primera función para restar dos números.
+
+```{r}
+restaDosNumeros<-function(x,y){
+    z <- x-y
+    return(z)
+}
+```
+
+```{r}
+restaDosNumeros(10,7)
+```
+
+```{r}
+restaDosNumeros(y=10,x=7)
+```
+
+Podemos definir parámetros opcionales con un valor por defecto.
+
+```{r}
+restaDosNumerosConEscala<-function(x,y,scale = 1){
+    (x-y)*scale
+}
+```
+
+```{r}
+restaDosNumerosConEscala(10,7, scale=3)
+```
+
+## Estimador estadístico
+
+Vamos a ver varios ejemplos de funciones en R utilizando estimadores estadísticos.
+
+Un [estimador](https://es.wikipedia.org/wiki/Estimador) es un estadístico (esto es, una función de la muestra) usado para estimar un parámetro desconocido de la población.
+
+Un estimador es una función que coje valores de una muestra de datos y hace un resumen, **estima un valor que define la muestra**.
+
+Como ejemplo de población utilizaremos el siguiente vector de tiempos de duración de un evento.
+
+```{r}
+activities<-read.csv('data/activities_strava.csv', stringsAsFactor=T)
+activities$duracion_minutos <- activities$Elapsed.Time/60
+duracion_afternoon <- activities[activities$Activity.Name=='Afternoon Ride','duracion_minutos']
+```
+
+### Media aritmética
+
+En matemáticas y estadística, la [media aritmética](https://es.wikipedia.org/wiki/Media_aritm%C3%A9tica) (también llamada promedio o media) de un conjunto finito de números es el valor característico de una serie de datos cuantitativos, objeto de estudio que parte del principio de la esperanza matemática o valor esperado, se obtiene a partir de la suma de todos sus valores dividida entre el número de sumandos.
+
+\\\[ \bar{x} = \frac{1}{N} \sum \_{i=1}\^N x_i\\\]
+
+En R la función de la media se podría definir así:
+
+```{r}
+myMean <- function(X){
+  m <- 0
+  for (xi in X){
+    m <- m+xi
+  }
+  #m<- sum(X)
+  return(m/length(X))
+}
+```
+
+```{r}
+myMean(duracion_afternoon)
+```
+
+Evidentemente R tiene una función para la media cuya ejecución es mucho más rápida que nuestra función:
+
+```{r}
+mean(duracion_afternoon)
+```
+
+### Media truncada
+
+La media truncada se utiliza cuando queremos quitar los $2p$ elementos más extremos ($p$ elementos por arriba y $p$ por abajo) del array del cómputo de la media. La media truncada es un estimador más robusto que la media.
+
+\\\[ \bar{x} = \frac{1}{N-2p} \sum \_{i=p+1}\^{N-p} x_i\\\]
+
+En R se utiliza la función $mean$ con el parámetro $trim$ que indica que porcentaje de elementos del array eliminamos antes de hacer la media
+
+```{r}
+mean(duracion_afternoon)
+```
+
+```{r}
+mean(duracion_afternoon,trim = 0.2)
+```
+
+```{r}
+?mean
+```
+
+### Varianza / desviación típica
+
+La [variancia](https://es.wikipedia.org/wiki/Varianza) (que suele representarse como $\sigma ^{2}$,$s^2$ o $Var(X)$) de una variable aleatoria es una medida de dispersión definida como la esperanza del cuadrado de la desviación de dicha variable respecto a su media. O en pocas palabras, es la media de los residuos al cuadrado.
+
+Es decir, define lo mucho que varía una variable aleatoria respecto a la media: \* Si todos los valores son iguales, no hay variación, la varianza es 0. \* Si los valores son muy diferentes unos de otros la varianza es alta.
+
+El motivo de usar el cuadrado es porque queremos ver lo mucho que cambia cada elemento sin importar su signo, si cambia por *arriba* o por *abajo*, el signo se elimina. El hecho de ser una función al cuadrado también da mayor importancia a los valores extremos. El problema que esto origina es que las unidades de la varianza están ambién al cuadrado, por ello, a veces se utiliza la **desviación típica**.
+
+La raíz cuadrada de la *varianza* es la **desviación típica** que indica **como de típica es la desviación respecto a la media en sus mismas unidades**.
+
+$$
+Var[x] = \frac{1}{N-1} \sum_{i=1}^N \left( x_i-\bar{x} \right)^2 
+$$
+
+En R la función de la varianza se podría definir así:
+
+```{r}
+myVar <- function(X){
+   m <- mean(X)
+   v <- 0
+   for (xi in X){
+      v <- v + (xi-m)^2   
+   }
+   v/(length(X)-1)
+}
+```
+
+```{r}
+print(paste("La varianza es:",myVar(duracion_afternoon)))
+print(paste("La desviación típica es:",sqrt(myVar(duracion_afternoon))))
+```
+
+Evidentemente R tiene una función para la varianza (*var*) y la desviación típica (*sd*) cuya ejecución es mucho más rápida que nuestra función:
+
+```{r}
+print(paste("La varianza es:",var(duracion_afternoon)))
+print(paste("La desviación típica es:",sd(duracion_afternoon)))
+```
+
+### Mediana
+
+La mediana es el valor de una distribución tal que la mitad de los elementos son superiores y la mitad son inferiores.
+
+```{r}
+myMedian <- function(X){
+  x <- sort(X) 
+  i <- (length(x)+1)/2
+  if (round(i)==i){
+    my_median <- x[i]
+  }else{
+    my_median <- (x[floor(i)]+x[ceiling(i)])/2
+  }
+  my_median
+}
+```
+
+```{r}
+myMedian(duracion_afternoon)
+```
+
+Como siempre es aconsejable utilizar la función que R ha preparado
+
+```{r}
+median(duracion_afternoon)
+```
+
+Media y mediana no tienen porqué ser iguales. Ejemplo salarios brutos españoles de 2020 [Fuente](http://www.ine.es/prensa/epa_2016_d.pdf): \* **Salario medio:** 25.165,51€/mes \* **Salario mediano:** 20.920,12€/mes
+
+Esto indica que hay poca gente con sueldos muy altos que sube la media, la distribución no es simétrica.
+
+![](pics/salario_medio_espa%C3%B1a.png)
+
+### Cuartiles
+
+Los [cuartiles](https://es.wikipedia.org/wiki/Cuartil) son los tres valores que dividen un conjunto de datos ordenados en cuatro partes porcentualmente iguales.
+
+-   Q1: El 25% de las muestras se encuentran por debajo del primer cuartil.
+-   Q2: El 50% de las muestras se encuentran por debajo del segundo cuartil. Este valor también se le conoce como *mediana*
+-   Q3: El 75% de las muestras se encuentran por debajo del tercer cuartil.
+-   Rango intercuantílico (IQR): Q3-Q1
+
+Una forma muy práctica de mostrar estos valores es con el diagrama de cajas (boxplot en inglés). El boxplot se compone de:
+
+-   Caja (Box): El lado superior indica el lugar de Q3, el lado inferior es Q1 y la línea que lo atraviesa es Q2
+-   Bigotes (Whiskers): Dos líneas que se exitienden 1.5 veces el IQR desde Q3 y desde Q1.
+-   Valores atípicos (Outlayers): Valores que se encuentran fuera de los bigotes.
+
+```{r}
+summary(duracion_afternoon)
+```
+
+```{r}
+X<-duracion_afternoon[duracion_afternoon<100]
+boxplot(X, ylim=c(5,40))
+#boxplot(X)
+grid()
+q1<-quantile(X,0.25)
+q3<-quantile(X,0.75)
+iqr<-q3-q1
+names(iqr)<-"iqr"
+q1
+q3
+iqr
+
+text(1.25,q3,"Q3")
+text(1.29,median(X),"mediana")
+text(1.25,q1,"Q1")
+text(1.25,q3+1.5*iqr,"Q3+1.5·IQR")
+text(1.25,q1-1.5*iqr,"Q1-1.5·IQR")
+
+text(0.9,q3+1.8*iqr,"Outlayers")
+```
+
+```{r}
+?boxplot
+```
+
+### Quantiles o percentiles
+
+El percentil indica el porcentaje de muestras que se encuentran debajo de un umbral dado. Es igual al cuantil, solo que este está dado en tanto por 1 mientras que el percentil está dado en tanto por ciento.
+
+#### Ejemplo:
+
+Los percentiles se utilizan mucho para mostrar si el peso de un bebé es el correcto o se desvía mucho de lo esperado. ![](pics/percentiles.png) Fuente [OMS](http://www.who.int/childgrowth/standards/sft_wfa_girls_p/en/)
+
+En R tenemos la función *quantile()*
+
+```{r}
+quantile(duracion_afternoon,0.9)
+```
+
+### Moda
+
+Es el valor con mayor frecuencia en una distribución.
+
+```{r}
+set.seed(123)
+# Creamos una secuencia de 40 números aleatorios
+vec<-round(rnorm(40,mean=7,sd=2))
+vec
+```
+
+```{r}
+#Contamos las veces que aparece cada uno
+myTable<-table(vec)
+myTable
+```
+
+```{r}
+names(myTable)[which.max(myTable)]
+```
+
+```{r}
+myTable[4]
+```
+
+```{r}
+print(paste("La posición del máximo es:",which.max(myTable)))
+
+print(paste("El número más común es:",names(myTable)[which.max(myTable)]))
+print(paste("Ese número ha aparecido ",max(myTable),"veces"))
+```

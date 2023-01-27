@@ -1,0 +1,99 @@
+---
+title: "Ejercicios_2023-01-11"
+format: html
+editor: visual
+---
+
+
+# Peso al nacer
+
+Leer el dataset que se encuentra en data/birthweight_reduced.csv. Quedarse con la columnas Birthweight y smoker. 
+Es un dataset donde se muestra el peso de los bebes al nacer de madres fumadoras y no fumadoras.
+
+Para cada grupo de fumadoras/no fumadoras calcular el peso medio, mediana y quartiles.
+
+Pintar un boxplot por cada grupo
+
+```{r}
+peso_nacimiento <- read.csv("data/birthweight_reduced.csv", stringsAsFactors = T) 
+head(peso_nacimiento) 
+```
+
+```{r}
+peso_nacimiento <- peso_nacimiento[,c('Birthweight','smoker')]
+peso_nacimiento$smoker <- factor(peso_nacimiento$smoker, labels = c('No','Si'))
+summary(peso_nacimiento)
+```
+```{r}
+peso_nacimiento_fumadora <- peso_nacimiento[peso_nacimiento$smoker=='Si', ]
+paste("El peso medio de los bebes las madres fumadores es de:", round(mean(peso_nacimiento_fumadora$Birthweight),2))
+paste("Los cuartiles serían:", paste(quantile(peso_nacimiento_fumadora$Birthweight,c(0.25,0.50,0.75)),collapse=', ') )
+```
+```{r}
+peso_nacimiento_no_fumadora <- peso_nacimiento[peso_nacimiento$smoker=='No', ]
+paste("El peso medio de los bebes las madres NO fumadores es de:", round(mean(peso_nacimiento_no_fumadora$Birthweight),2))
+paste("Los cuartiles serían:", paste(quantile(peso_nacimiento_no_fumadora$Birthweight,c(0.25,0.50,0.75)),collapse=', ') )
+```
+
+Otra forma de hacerlo:
+```{r}
+library(tidyverse)
+peso_nacimiento |> group_by(smoker) |> summarise(media=mean(Birthweight),
+                                                 q1=quantile(Birthweight,0.25),
+                                                 mediana=median(Birthweight),
+                                                 q3=quantile(Birthweight,0.75))
+
+``` 
+
+Pintar un boxplot por cada grupo
+```{r}
+ggplot(peso_nacimiento, aes(x=smoker, y=Birthweight, color=smoker))+
+  geom_boxplot()+
+  theme(legend.position = 'none')+
+  xlab("Fumadora")+ylab("Peso al nacer")+ggtitle("Peso de los niños al nacer")
+```
+
+
+
+# Población española INE
+
+Partiendo del dataset visto en clase data/9663bsc.csv. Calcular la mediana de la edad española.
+
+
+```{r}
+poblacion_raw<-read.csv("data/9663bsc.csv",skip=0,fileEncoding="ISO-8859-1",header=T, sep=';',stringsAsFactor=F)
+poblacion_raw |> 
+  mutate(Total=as.numeric(gsub('\\.','',Total))) |>
+  pivot_wider(names_from = Sexo, values_from = Total) |>
+  mutate(edad=as.numeric(gsub('año(s|)','',Edad.simple))) |> 
+  drop_na() |>
+  rename(Total='Ambos sexos') |>
+  arrange(edad) |>
+  select(edad, Total, Hombres, Mujeres) -> poblacion
+
+```
+```{r}
+poblacion$pob_acumulada <- cumsum(poblacion$Total)
+poblacion$percentil <- poblacion$pob_acumulada/sum(poblacion$Total)
+
+ggplot(poblacion,aes(x=edad,y=percentil))+geom_line()+
+  geom_point(color='red',size=0.5)+
+  ggtitle("Percentiles", subtitle = "funcion acumulativa de probabilidad")+
+  scale_y_continuous(breaks = seq(0,1,0.1))+
+  scale_x_continuous(breaks = seq(0,102,5))
+```
+
+```{r}
+poblacion[which.min(abs(poblacion$percentil-0.5)),]$edad
+```
+
+```{r}
+mycusum <- function(x){
+  x_sum<-seq(0, length.out=length(x))
+  for (i in 1:length(x)){
+    x_sum[i]<-sum(x[1:i])
+  }
+  x_sum
+}
+poblacion |> mutate(suma_acumulada=mycusum(Total))
+```

@@ -1,0 +1,281 @@
+---
+format: html
+editor: visual
+---
+
+El análisis exploratorio de datos consiste en analizar los datos que tenemos para poder extraer conclusiones.
+
+Los gráficos son la mejor forma de representar los datos. Los estimadores estadísticos como la media, mediana o percentiles nos pueden dar una idea aproximada, pero su estructura se aprecia mucho mejor si podemos pintarlos.
+
+En esta sección vamos a ver como utilizar R y diferentes funciones del tidyverse para realizar diferentes gráficos.
+
+### Evolución datos covid
+
+Qué vamos a aprender:
+
+-   operador \|\>
+-   Librería [dplyr](https://dplyr.tidyverse.org/): group_by() y summarize()
+-   Librería [ggplot2](https://ggplot2.tidyverse.org/): geom_line() y geom_cols()
+
+Utilizaremos los datos de:
+
+https://cnecovid.isciii.es/covid19/#documentaci%C3%B3n-y-datos
+
+```{r}
+covid_url<-'https://cnecovid.isciii.es/covid19/resources/hosp_uci_def_sexo_edad_provres_todas_edades.csv'
+
+df_covid<-read.csv(url(covid_url), stringsAsFactors = T)
+df_covid$fecha <- as.Date(df_covid$fecha)
+head(df_covid)
+```
+
+Vamos a ver el número de provincias que tenemos. Los códigos de las provincias se pueden consultar aquí: https://es.wikipedia.org/wiki/ISO_3166-2:ES
+
+```{r}
+
+```
+
+Vamos a ver el rango de fechas de los datos que tenemos:
+
+```{r}
+
+
+```
+
+```{r}
+
+
+```
+
+Podemos calcular el número de casos que ha habido en un día determinado
+
+```{r}
+dia <- '2022-08-01'
+
+
+
+paste("El número total de hospitalizados el dia",dia,"fue de:", num_hospitalizados)
+paste("El número total de enfermos en UCI el dia",dia,"fue de:", num_uci)
+paste("El número total de defunciones el dia",dia,"fue de:", num_def)
+```
+
+#### Operador \|\>
+
+El operador X \|\> fun() lo que hace es pasar el elemento X como primer parámetro a la función fun().
+
+Es decir, `X |> fun()`, es equivalente a `fun(X)`. La ventaja es que se pueden concatenar funciones y usar la salida de una función como la entrada a la siguiente.
+
+Así `X |> fun1() |> fun2()` es equivalente a `fun2(fun1(X))`
+
+**Agrupación**
+
+Pero si queremos calcular el número total de casos por días podemos usas librerías para agrupar.
+
+```{r}
+library(dplyr)
+
+```
+
+Ahora podemos pintar la evolución diaria:
+
+```{r}
+library(ggplot2)
+
+
+```
+
+## Análisis de la población española en 2022
+
+Qué vamos a aprender:
+
+-   Librería [dplyr](https://dplyr.tidyverse.org/):
+-   select()
+-   rename()
+-   arrange()
+-   mutate()
+-   librería [tidyr](https://tidyr.tidyverse.org/):
+-   drop_na()
+-   pivot_wider()
+-   librería [ggplot2](https://ggplot2.tidyverse.org/)
+-   geom_cols()
+-   geom_hline() y geom_vline()
+-   scale_y\_continuous()
+
+Se han descargado los datos oficiales del Instituto Nacional de Estadística (http://www.ine.es), la población residente por fecha, sexo y edad a fecha del 1 de enero de 2022. El fichero [966b3c.csv](http://www.ine.es/jaxiT3/Tabla.htm?t=9663&L=0) se encuentra accesible desde el notebook.
+
+```{r}
+poblacion_raw<-read.csv("data/9663bsc.csv",skip=0,fileEncoding="ISO-8859-1",header=T, sep=';',stringsAsFactor=F)
+head(poblacion_raw,7)
+```
+
+Tenemos que transformar los datos para tener un dataframe con 4 columnas:
+
+-   Total: Total de población que existe para una determinada edad (Mujeres+Hombres)
+-   Hombres: Total de hombres que existe para una determinada edad
+-   Mujeres: Total de mujeres que existe para una determinada edad
+-   edad: Edad en años de ese segmento de la población
+
+```{r}
+library(dplyr)
+library(tidyr)
+
+
+```
+
+```{r}
+paste("La población total de españa es de", sum(poblacion$Total),"habitantes.")
+```
+
+```{r}
+paste("En españa hay",...,
+      "mujeres y ", 
+      ...,
+      "hombres.")
+```
+
+```{r}
+paste("La moda, la edad más común, es de",
+      ...,"edad"],
+      "años")
+```
+
+```{r}
+paste("La media de edad de la población española es",
+      ...,
+     "años.")
+```
+
+```{r}
+edad<-65
+...
+
+paste0("El porcentaje de personas con una edad superor a ",
+     edad,
+     " años es del ",
+      porc_edad,"%")
+```
+
+```{r}
+edad1<-18
+edad2<-65
+...
+
+paste0("El porcentaje de personas con una edad entre ",
+     edad1," y ",edad2,
+     " años es del ",
+      porc_edad,"%")
+```
+
+#### Histograma de la población
+
+```{r}
+library(ggplot2)
+
+```
+
+```{r}
+
+```
+
+Evolución del porcentaje de Hombres vs Mujeres en función con la edad
+
+```{r}
+
+
+```
+
+Más información [aquí](https://www.ine.es/ss/Satellite?L=es_ES&c=INESeccion_C&cid=1259926722525&p=%5C&pagename=ProductosYServicios%2FPYSLayout)
+
+## Meteorologia
+
+La librería Nasa power contiene información de temperatura, precipitación y humedad obtenida por https://cran.r-project.org/web/packages/nasapower/vignettes/nasapower.html
+
+```{r}
+library('nasapower')
+library(tidyverse)
+library(zoo)
+```
+
+```{r}
+today <- format(Sys.time(), "%Y-%m-%d")
+```
+
+```{r}
+df_weather <- get_power(
+  community = "ag",
+  #lonlat = c(-3.8196207, 40.4378698),
+  lonlat = c(-6.1486422, 42.0845743),
+  pars = c("RH2M", "T2M", "PRECTOTCORR", "T2M_MAX","T2M_MIN", "T10M_MAX","T10M_MIN"),
+  dates = c("1981-01-01", today),
+  temporal_api = "daily"
+)
+```
+
+```{r}
+tail(df_weather)
+```
+
+```{r}
+
+```
+
+Vamos a calcular la tempera media anual en una ventana movil
+
+```{r}
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+### Evolución Co2
+
+```{r}
+df_co2 <- read_csv('https://nyc3.digitaloceanspaces.com/owid-public/data/co2/owid-co2-data.csv')
+```
+
+```{r}
+head(df_co2)
+```
+
+```{r}
+colnames(df_co2)
+```
+
+El significado de las columnas lo podemos extraer de aquí:
+
+```{r}
+read_csv('https://raw.githubusercontent.com/owid/co2-data/master/owid-co2-codebook.csv', show_col_types = FALSE)
+```
+
+vamos a ver las emisiones de Co2 de todos los paises:
+
+```{r}
+df_co2 |> group_by(year) |> summarize(co2=sum(co2,na.rm=T), co2_per_capita=sum(co2_per_capita,na.rm=T)) -> df_co2_anual
+```
+
+```{r}
+
+```
+
+Y lo comparamos con las emisiones de CO2 per cápita:
+
+```{r}
+
+```

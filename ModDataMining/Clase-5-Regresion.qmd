@@ -1,0 +1,541 @@
+---
+format: html
+editor: visual
+---
+
+Dataset de:
+
+https://myweb.uiowa.edu/pbreheny/data/pearson.html
+
+Copiar: https://cs.brown.edu/courses/cs100/lectures/lecture15c.pdf
+
+```{r}
+library(tidyverse)
+```
+
+Vamos a cargar un dataset que tiene la altura de los padres y sus hijos. Son datos utilizados orignalmente por Francis Galton.
+
+```{r}
+df=read.table('data/father_son.txt', header=TRUE)
+head(df)
+```
+
+```{r}
+summary(df)
+```
+
+Los datos están en pulgadas, así que los pasaremos a centímetros para endenderlo mejor.
+
+```{r}
+df_cm <- df |> mutate(Father=Father*2.54, Son=Son*2.54)
+```
+
+A continuación vamos a dibujar el histograma de la altura de padres e hijos junto con un boxplot:
+
+```{r}
+g1 <- ggplot(df_cm, aes(x=Father))+
+  geom_histogram(bins=20, color='blue', fill='dark blue')+
+  geom_boxplot(width=20, color='red')+ggtitle("Altura padres")+
+  xlim(c(140,200))
+ 
+g2 <- ggplot(df_cm, aes(x=Son))+
+  geom_histogram(bins=20, color='blue', fill='dark blue')+
+  geom_boxplot(width=20, color='red')+ggtitle("Altura hijos")+
+  xlim(c(140,200))
+
+gridExtra::grid.arrange(g1, g2, ncol=2)  
+```
+
+La distribución de altura de los hijos y los padres es muy parecida. Vamos a ver como se relacionan entre sí.
+
+La siguiente gráfica nos dice que los padres altos tienen hijos altos y que los padres bajos tienen hijos bajos.
+
+```{r}
+ggplot(df_cm, aes(x=Father, y=Son))+geom_point(color='blue')+
+  geom_smooth(method='lm', formula = y~x, color='red')+
+  xlab('Padre')+ylab('Hijo')+
+  ggtitle("Relación de alturas entre padres e hijos")
+
+```
+
+Vamos a intentar obtener una formula que nos diga cual es la altura del hijo en función de la altura del padre, vamos a calcular lo que se llama una **regresión lineal**.
+
+Queremos calcular una fómula que relacione la altura del hijo con la del padre. Algo como esto:
+
+$$
+y=\beta_0+\beta_1·x
+$$
+
+Donde:
+
+-   $y$ es la altura del hijo
+-   $x$ es la altura del padre
+
+El objetivo es encontrar unos valores de $\beta_0$ y $\beta_1$ que minimicen el error que cometemos en la predicción.
+
+El error, también llamado **residuo**, es la diferencia entre la altura real del iésimo hijo y la altura predicha por nuestro modelo, nuestra ecuación:
+
+$$
+error_i = y_{i} - \hat{y_{i}} = y_{i} - (\beta_0+\beta_1·x_i)
+$$
+
+Buscaremos unos valores $\beta_0$ y $\beta_1$ tal que minimicen el el error cuadrático medio: 
+$$
+MSE = {1 \over n} \sum_{i=0}^n{(y_i-\hat{y_i})^2} = {1 \over n} \sum_{i=0}^n{(y_i-(\beta_0+\beta_1·x_i))^2}
+$$
+
+Podemos calcularlo con la función *lm()*:
+
+```{r}
+model <- lm(data=df_cm, formula=Son~Father)
+#model <- lm(Son~Father, df_cm)
+summary(model)
+```
+
+Esto nos dice que la altura del hijo es:
+
+$$
+hijo_{altura} = 86.072+0.514·padre_{altura}
+$$
+
+La altura estimada de un hijo cuyo padre mide 155cm es: $$
+hijo_{altura}=86.072+0.514·155=165cm
+$$
+
+La altura estimada de un hijo cuyo padre mide 185cm es: $$
+hijo_{altura}=86.072+0.514·185=181cm
+$$
+
+Vamos a calcular la altura estimada de un hijo para diferentes alturas de un padre: 150,155,160,180,185 y 190
+
+```{r}
+df_cm2 <- data.frame(Father=c(150,155,160,180,185,190))
+df_cm2$Son <-predict(model, df_cm2)
+df_cm2
+```
+
+Los **padres altos** tienen hijos altos, pero de media serán **más bajos que sus padres**.
+
+Los **padres bajos** tienen hijos bajos, pero de media serán **más altos que sus padres**.
+
+Se produce lo que se llama una **regresión a la media**, es decir, la altura del hijo está relacionada con la altura del padre pero tenderá hacia la media.
+
+Si intentamos crear un modelo sin el intercept:
+```{r}
+model0 <- lm(data=df_cm, formula=Son~Father+0)
+summary(model0)
+ggplot(df_cm, aes(x=Father,y=Son))+geom_point(color='blue')+
+  geom_abline(slope = model$coefficients[2], intercept=model$coefficients[1] ,color='red')+
+  geom_abline(slope = model0$coefficients[1], intercept=0,color='green')+
+  xlim(c(140,200))
+```
+
+
+
+
+
+Vamos a calcular la altura media de los hijos cuyos padres son **altos**, miden más de 180cm. Como veremos, la altura media de los hijos será **inferior** a la de sus padres.
+
+```{r}
+df_cm %>% filter(Father >= 180) |> 
+    summarize(father =mean(Father), 
+          son = mean(Son), diff = mean(Father-Son))
+```
+
+Vamos a calcular la altura media de los hijos cuyos padres son **bajos**, miden menos de 170cm. Como veremos, la altura media de los hijos será **superior** a la de sus padres.
+
+```{r}
+df_cm %>% filter(Father <= 170) |> 
+    summarize(father =mean(Father), 
+          son = mean(Son), diff = mean(Father-Son))
+```
+
+Vamos a dibujar el histograma por separado de los padres altos y bajos junto con sus hijos.
+
+```{r}
+g1 <- df_cm |> filter(Father<=170) |>
+  pivot_longer(c(Father,Son), names_to='sujeto', values_to = 'altura') |>
+  ggplot(aes(x=altura, color=sujeto))+
+    geom_histogram(binwidth = 1, alpha=0.2, aes(fill=sujeto))+
+    geom_boxplot(width=10)+theme_bw()+
+    ggtitle("Padres menores de 170 cm")+
+    theme(legend.position = c(0.8,0.7))
+
+g2 <- df_cm |> filter(Father>=180) |>
+  pivot_longer(c(Father,Son), names_to='sujeto', values_to = 'altura') |>
+  ggplot(aes(x=altura, color=sujeto))+
+    geom_histogram(binwidth = 1, alpha=0.2, aes(fill=sujeto))+
+    geom_boxplot(width=10)+theme_bw()+
+    ggtitle("Padres mayores de 180 cm")+
+    theme(legend.position = c(0.8,0.7))
+
+gridExtra::grid.arrange(g1, g2, ncol=2)
+```
+
+También podemos calcular lo que se conoce como covarianza y correlación.
+
+### Covarianza
+
+La covarianza es un valor que indica el grado de variación **lineal** conjunta de dos variables aleatorias respecto a sus medias.
+
+Supongamos que queremos comparar dos variables aleatorias X e Y: 
+
+* Tendremos alta covarianza (positiva) cuando, para valores altos de X, tengamos mayoritariamente valores altos de Y 
+* Tendremos baja covarianza (negativa) cuando, para valores altos de X, tengamos mayoritariamente valores bajos de Y 
+* Tendremos covarianza cercana a 0, para valores altos de X, los valores de Y pueden ser altos o bajos por igual
+
+Su formula es la siguiente:
+
+$$
+cov(X,Y) = \frac{1}{N} \sum_{i=1}^N \left( x_i-\bar{x} \right)\left( y_i-\bar{y} \right)
+$$
+
+Recordemos la formula de la varianza:
+
+$$
+Var(x) = \frac{1}{N} \sum_{i=1}^N \left( x_i-\bar{x} \right)^2
+$$
+
+La covarianza de una variable aleatoria consigo misma es igual a la varianza: $$
+cov(X,X) = Var(X)
+$$
+
+En R la calculamos con la función *cov(x,y)*
+
+```{r}
+cov(df_cm)
+```
+
+### Correlación
+
+La correlación es un valor que indica el grado de variación conjunta y **lineal** de dos variables aleatorias. Es la covarianza normalizada en el rango $[-1,1]$. Es una forma de ignorar la variación de cada una de las variables en si y centrarse únicamente en la relación que existe entre ambas, ya que una covarianza alta puede venir dada también porque una de las variables a estudiar tenga una varianza elevada.
+
+Supongamos que queremos comparar dos variables aleatorias X e Y:
+
+-   Correlación cercana a 1, para valores altos de X, tengamos mayoritariamente valores altos de Y
+-   Correlación cercana a -1, para valores altos de X, tengamos mayoritariamente valores bajos de Y
+-   Correlación cercana a 0, para valores altos de X, los valores de Y pueden ser altos o bajos por igual
+
+La función de correlación de Pearson es: $$
+\rho_{X,Y} = corr (X,Y) = \frac{cov(X,Y)}{\sigma_X \sigma_Y}
+$$
+
+Al igual que con la covarianza podemos calcular una matriz de correlación. Se utiliza para ver de forma sencilla cual es la relación entre varias variables. En una matriz de correlación la diagonal será siempre 1 (la correlación de una variable consigo misma es 1) y el valor de la celda *ij* vendrá dado por la correlación de la variable i con j.
+
+En R la calculamos con la función *cor(x,y)*
+
+```{r}
+cor(df_cm)
+```
+
+```{r}
+df_test <- data.frame(x=seq(0,100)) |> mutate(y = 2*x+rnorm(101, mean=0,100))
+ggplot(df_test, aes(x=x, y=y))+
+  geom_abline(slope = 2, intercept = 0, col='red')+
+  geom_point(col='blue')
+model <- lm(df_test, formula=y~x)
+summary(model)
+cor(df_test)
+```
+
+```{r}
+df_test <- data.frame(x=seq(0,100)) |> mutate(y = 2*x+rnorm(101, mean=0,1))
+ggplot(df_test, aes(x=x, y=y))+
+  geom_abline(slope = 2, intercept = 0, col='red')+
+  geom_point(col='blue')
+model <- lm(df_test, formula=y~x)
+summary(model)
+cor(df_test)
+```
+
+
+### Ejemplo: Peso de los niños al nacer
+
+Este dataset contiene información de bebes recien nacidos y sus padres. Podemos usarlo como regresión para ver cuales son los factores que más afectan al peso del niño.
+
+http://people.reed.edu/~jones/141/BirthWgt.html
+
+Tenemos las siguientes variables que vamos a utilizar:
+
+| Nombre      | Variable                                       |
+|-------------|------------------------------------------------|
+| Birthweight | Peso al nacer (libras)                         |
+| Gestation   | Semanas que duró la gestación                  |
+| motherage   | Edad de la madre                               |
+| mnocig      | Número de cigarros al día fumados por la madre |
+| mheight     | Altura de la madre (pulgadas)                  |
+
+```{r}
+bwt<-read.csv("data/birthweight_reduced.csv")
+bwt<-bwt[,c('Birthweight', 'Gestation', 'motherage', 'mnocig', 'mheight')]
+
+library(GGally)
+ggpairs(bwt[,c("Gestation","motherage","mnocig","mheight","Birthweight")],
+lower = list(continuous = wrap("points", alpha = 0.3,size=0.3,color='blue'))
+) 
+```
+
+Vamos a crear un modelo de regresión lineal en el que trataremos de obtener el peso de un niño al nacer en función del tiempo de gestación, la edad de la madre, el número de cigarros que fumaba al día y su altura.
+
+```{r}
+model_orig <- lm(data=bwt, formula = Birthweight ~ Gestation+motherage+mnocig+mheight)
+summary(model_orig)
+```
+
+Los valores que más influencia parecen tener son aquellos que presentan un pvalor (Pr) más bajo. El número de \* que hay a la derecha de cada fila indica su grado de confianza.
+
+La variable que más parece influir es la gestación, parece que por cada semana de gestación el bebé gana 0.33062 libras de peso. En cambio por cada cigarro al día que fuma la madre el peso del bebé podría disminuir en 0.02613 libras. La altura de la madre también parece tener cierta incluencia, por cada pulgada más que mida la madre el bebé pesará 0.13329 libras más. En cambio la edad de la madre parece no tener ningún efecto estadístico significativo.
+
+```{r}
+model <- lm(data=bwt, formula = Birthweight ~ Gestation+mnocig+mheight)
+summary(model)
+```
+
+Esto significa que podemos calcular el peso de un bebé al nacer mediante la siguiente formula:
+
+peso_bebe = -14.026+0.33*Gestation-0.02374*mnocig+0.13289*mheight
+
+```{r}
+-14.026+0.33058*42-0.02374*0+0.13289*35
+```
+
+¿Cuanto pesará en media un niño nacido de una madre no fumadora, con una altura de 35 pies, después de 42 semanas de gestación?
+
+```{r}
+predict(model, data.frame(Gestation=42, mheight=35, mnocig=0))
+```
+
+## Coeficiente de determinación $R^2$
+
+Proporciona una medida de como de bien nuestra medida sigue al modelo. Se calcula mediante:
+
+$$
+R^2=1-\frac{SS_{res}}{SS_{tot}}=1-\frac{MSE(y,y')}{VAR(y)}
+$$
+
+Donde $SS_{res}$ es la suma del cuadrado de los residuos: 
+$$
+SS_{res}=\sum_i (y_i-y_i')^2
+$$
+
+y $SS_{tot}$ es proporcional a la varianza de $Y$:
+
+$$
+SS_{tot}=\sum_i (y_i-\bar{y})^2
+$$
+
+Cuanto más cercano a $1$ mejor seguirá la predicción a los datos reales.
+
+
+#### Formas de mejorar nuestro modelo
+
+```{r}
+model2 <- lm(data=bwt, formula = Birthweight ~ Gestation*I(mheight^2)+mnocig)
+#model2 <- lm(data=bwt, formula = Birthweight ~ Gestation*I(log10(mheight))+mnocig)
+summary(model2)
+```
+
+La formula que emplea sería:
+peso_alnacer = 8.5553578-0.1399920*Gestation-0.0034568*mheight^2-0.0217862*mnocig+0.0001151*Gestation*mheight^2
+
+
+### Prediciendo la potencia de generación de una central de ciclo combinado
+
+El conjunto de datos contiene 9568 puntos de datos recopilados de una Central de Ciclo Combinado durante 6 años (2006-2011), cuando la planta de energía se puso a funcionar con carga completa. Las características consisten en variables ambientales promedio por hora, Temperatura Ambiente (AT), Presión ambiente (AP), Humedad relativa (HR) y Vacío de escape (V) para predecir la producción neta de energía eléctrica por hora (PE) de la planta.
+
+Las características consisten en variables ambientales promedio por hora 
+
+- **Producción neta de energía** eléctrica por hora (PE) 420.26-495.76 MW
+- Temperatura (AT) en el rango de 1.81 ° C y 37.11 ° C
+- Presión ambiental (AP) en el rango de 992.89-1033.30 milibares
+- Humedad relativa (HR) en el rango de 25.56% a 100.16% 
+- Vacío de escape (V) en el rango de 25.36-81.56 cm Hg
+
+Los promedios se toman de varios sensores ubicados alrededor de la planta que registran las variables ambientales cada segundo. Las variables se dan sin normalización.
+
+https://archive.ics.uci.edu/ml/datasets/Combined+Cycle+Power+Plant
+
+```{r}
+powerplant<-read.csv("data/powerplant.csv")
+str(powerplant)
+```
+
+```{r}
+library(GGally)
+ggpairs(powerplant,         
+       lower = list(continuous = wrap("points", alpha = 0.2,size=0.1,color='blue'))
+       )
+```
+
+Cuando creamos un modelo de Machine Learning es muy aconsejable dividir los datos en dos grupos.
+
+Un grupo, con entre el 70% y 80% de los datos que se utilizará para entrenar el modelo. Lo llamaremos dataframe de training.
+
+El resto de datos lo utilizaremos para evaluar la calidad del modelo. Son datos que no ha visto nuestro modelo 1y por tanto nos muestra como de bien o mal predicirá con datos nuevos. Estos son los datos de test.
+
+```{r}
+set.seed(1234)
+idx <- sample(1:nrow(powerplant), nrow(powerplant)*0.7)
+powerplant.train <-powerplant[idx,]
+powerplant.test <-powerplant[-idx,]
+```
+
+Ahora calculamos el modelo con el dataset de train
+
+```{r}
+model_powerplant <- lm(data=powerplant.train, formula = PE ~ .)
+summary(model_powerplant)
+```
+
+Calculamos sus figuras de calidad, tanto en training como en testing:
+
+```{r}
+powerplant.train$pe_est <- predict(model_powerplant, powerplant.train)
+caret::postResample(pred = powerplant.train$pe_est, obs=powerplant.train$PE)
+```
+
+```{r}
+powerplant.test$pe_est <- predict(model_powerplant, powerplant.test)
+caret::postResample(pred = powerplant.test$pe_est, obs=powerplant.test$PE)
+```
+
+Aquí vemos que el R² es bastante alto, tanto en training como en testing. Eso indica que es un buen modelo. Para asegurarnos miraremos los residuos.
+
+Os pueden salir diferentes resultados. Aquí van unas guias **aproximadas** de lo que puede estar occuriendo:
+
+-   RMSE_train << RMSE_test o R_train^2 >> R_test^2: Significa que teneis overfitting. Teneis que hacer el modelo más sencillo. Con la regresión lineal aparecerá pocas veces.
+-   RMSE_test~= RMSE_test o R_train^2 ~= R_test^2: Significa que NO teneis overfitting.
+-   R_test << 0.2 : Significa que vuestro modelo predice mal
+-   R_test >> 0.7 : Significa que vuestro modelo predice bien
+
+También es buena práctica comprobar los residuos:
+
+-   Han de seguir una distribución normal.
+-   Su varianza debe ser constante.
+-   Los valores medios de los residuos deben estar centrados en 0
+
+```{r}
+ggplot(powerplant.train, aes(x=PE, y=PE-pe_est))+
+  geom_point(color='blue', alpha=0.2)+
+  geom_hline(yintercept = 0, color='red')+
+  ggtitle("Residuos en training")
+```
+
+```{r}
+ggplot(powerplant.train, aes(x=PE-pe_est))+geom_histogram(color='red', fill='blue')
+```
+
+Lo verdaderamente importante es comprobar los residuos en testing:
+```{r}
+ggplot(powerplant.test, aes(x=PE, y=PE-pe_est))+
+  geom_point(color='blue', alpha=0.2)+
+  geom_hline(yintercept = 0, color='red')+
+  ggtitle("Residuos en training")
+```
+```{r}
+ggplot(powerplant.test, aes(x=PE-pe_est))+
+  geom_histogram(color='red', fill='blue') 
+  ggtitle("Residuos en testing")
+```
+
+
+### Prediciendo la dureza del hormigón
+
+Resumen: El hormigón es el material más importante en la ingeniería civil. La resistencia a la compresión del hormigón es una función altamente no lineal de la edad y ingredientes Estos ingredientes incluyen cemento, escoria de alto horno, cenizas volantes, agua, superplastificante, agregado grueso y agregado fino.
+
+Fuente: https://archive.ics.uci.edu/ml/datasets/Concrete+Compressive+Strength
+
+**Características de los datos:**  La resistencia a la compresión real del hormigón (MPa) para una mezcla dada bajo un la edad específica (días) se determinó a partir del laboratorio. Los datos están en forma cruda (no a escala).
+
+**Resumen estadístico:**
+
+Número de instancias (observaciones): 1030 
+Cantidad de Atributos: 9 
+Desglose de atributos: 8 variables de entrada cuantitativas y 1 variable de salida cuantitativa 
+Faltan valores de atributo: ninguno
+
+-   Cemento (componente 1) - cuantitativo - kg en una mezcla m3 - Variable de entrada
+-   Escoria de alto horno (componente 2) - cuantitativa - kg en una mezcla de m3 - Variable de entrada
+-   Cenizas volantes (componente 3) - cuantitativo - kg en una mezcla m3 - Variable de entrada
+-   Agua (componente 4) - cuantitativa - kg en una mezcla m3 - Variable de entrada
+-   Superplastificante (componente 5) - cuantitativo - kg en una mezcla m3 - Variable de entrada
+-   Agregado grueso (componente 6) - cuantitativo - kg en una mezcla m3 - Variable de entrada
+-   Agregado fino (componente 7) - cuantitativo - kg en una mezcla m3 - Variable de entrada
+-   Edad - cuantitativa - Día (1 ~ 365) - Variable de entrada
+-   Resistencia a la compresión del hormigón - cuantitativa - MPa - Variable de salida
+
+Cargamos los datos y observamos sus valores
+
+```{r}
+concrete<-read.csv("data/Concrete_Data.csv",
+                   col.names=c("cemento","escoria","cenizas","agua","plastificante","aggrueso","agfino","edad","resistencia"))
+summary(concrete)
+```
+
+```{r}
+ggpairs(concrete,         
+       lower = list(continuous = wrap("points", alpha = 0.2,size=0.1,color='blue'))
+       )
+```
+
+Separamos los datos en train y test
+
+```{r}
+set.seed(12)
+idx<-sample(1:nrow(concrete),nrow(concrete)*0.7)
+train.df<-concrete[idx,]
+test.df<-concrete[-idx,]
+```
+
+Creamos el modelo
+
+```{r}
+model <- lm(resistencia~.-agfino-aggrueso, train.df)
+summary(model)
+```
+
+Calculamos sus figuras de calidad, tanto en training como en testing:
+
+```{r}
+train.df$resistencia_est<-predict(model,train.df)
+caret::postResample(pred=train.df$resistencia_est, obs= train.df$resistencia)
+```
+
+```{r}
+test.df$resistencia_est<-predict(model,test.df)
+caret::postResample(pred=test.df$resistencia_est, obs= test.df$resistencia)
+```
+
+Aquí vemos que tenemos un R² no tan bueno, veamos el residuo:
+
+```{r}
+ggplot(test.df, aes(x=resistencia-resistencia_est))+geom_histogram(color='black', fill='blue')+ggtitle("Residuos en testing")
+```
+```{r}
+quantile(test.df$resistencia-test.df$resistencia_est, c(0.025,0.25,0.50,0.75,0.975))
+```
+
+
+```{r}
+ggplot(test.df, aes(x=resistencia, y=resistencia-resistencia_est))+
+  geom_point(color='black')+ggtitle("Residuos en testing")+
+  geom_hline(yintercept = 0, color='red')
+```
+
+Se ve como a medida que aumenta la resistencia también lo hace el error del modelo. Este modelo no es especialmente bueno, pero podría ser útil si es rentable económicamente.
+
+**Importante** : Todos los modelos son erróneos, pero algunos son útiles. https://en.wikipedia.org/wiki/All_models_are_wrong
+
+
+```{r}
+train.df$resistencia_est<-NULL
+model <- lm(resistencia~.-agfino-aggrueso+
+              I(log10(edad))+
+              I(log10(cenizas+0.1))-
+              cenizas-plastificante, train.df)
+summary(model)
+```
+```{r}
+test.df$resistencia_est<-predict(model,test.df)
+caret::postResample(pred=test.df$resistencia_est, obs= test.df$resistencia)
+```
